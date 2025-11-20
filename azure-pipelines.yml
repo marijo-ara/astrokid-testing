@@ -1,0 +1,49 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+jobs:
+- job: BuildAndTest
+  displayName: 'Compilar y Ejecutar Tests'
+  pool:
+    vmImage: 'windows-latest'
+  variables:
+    buildConfiguration: 'Release'
+    solution: 'AstroKid.Tests.sln'
+  steps:
+    - checkout: self
+      displayName: 'Checkout código'
+    
+    - task: UseDotNet@2
+      displayName: 'Instalar .NET SDK'
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restaurar paquetes'
+      inputs:
+        command: 'restore'
+        projects: '$(solution)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Compilar solución'
+      inputs:
+        command: 'build'
+        projects: '$(solution)'
+        arguments: '--configuration $(buildConfiguration)'
+        publishTestResults: false
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Ejecutar tests'
+      inputs:
+        command: 'test'
+        projects: '$(solution)'
+        arguments: '--configuration $(buildConfiguration) --collect "XPlat Code Coverage"'
+        publishTestResults: true
+        testRunTitle: 'AstroKid Tests'
+
