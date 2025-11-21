@@ -1,4 +1,5 @@
 using RestSharp;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Core.Config;
 
@@ -12,7 +13,7 @@ namespace Core.Clients
         {
             var options = new RestClientOptions(ConfigManager.Settings.BaseUrl)
             {
-                // Aquí podrías configurar timeouts, etc.
+                // AquÃ­ podrÃ­as configurar timeouts, etc.
             };
 
             _client = new RestClient(options);
@@ -30,10 +31,14 @@ namespace Core.Clients
             return await _client.ExecuteAsync(request);
         }
 
-        public async Task<RestResponse> PostAsync<T>(string endpoint, T body, string token = "")
+        public async Task<RestResponse> PostAsync<T>(string endpoint, T? body, string token = "") where T : class
         {
             var request = new RestRequest(endpoint, Method.Post);
-            request.AddJsonBody(body);
+            if (body != null)
+            {
+                var jsonBody = JsonSerializer.Serialize(body);
+                request.AddStringBody(jsonBody, ContentType.Json);
+            }
 
             if (!string.IsNullOrEmpty(token))
             {

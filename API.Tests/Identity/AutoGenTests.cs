@@ -13,10 +13,8 @@ public class AutoGenTests
         var result = await agent.GenerateTestCase("Generate a test cases for OAuth2 token endpoint");
         Console.WriteLine(result);
         TestContext.WriteLine(result);
-        Assert.Pass(result);
-        Assert.IsNotEmpty(result);
-        Assert.IsNotNull(result);
-        Assert.IsTrue(result.Length > 0);
+        Assert.That(result, Is.Not.Null);
         Assert.That(result, Is.Not.Empty);
+        Assert.That(result.Length, Is.GreaterThan(0));
     }
 }
