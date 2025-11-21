@@ -9,7 +9,7 @@ jobs:
 - job: BuildAndTest
   displayName: 'Compilar y Ejecutar Tests'
   pool:
-    vmImage: 'windows-latest'
+    name: 'Default'
   variables:
     buildConfiguration: 'Release'
     solution: 'AstroKid.Tests.sln'
