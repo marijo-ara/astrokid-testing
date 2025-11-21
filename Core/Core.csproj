@@ -7,7 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="dotnet.AutoGen" Version="0.2.7" />
+    <PackageReference Include="AutoGen.Core" Version="0.2.3" />
+    <PackageReference Include="AutoGen.OpenAI" Version="0.2.3" />
     <PackageReference Include="RestSharp" Version="112.1.0" />
   </ItemGroup>
 
