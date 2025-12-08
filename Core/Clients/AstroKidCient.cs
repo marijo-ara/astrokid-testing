@@ -47,5 +47,34 @@ namespace Core.Clients
 
             return await _client.ExecuteAsync(request);
         }
+
+        public async Task<RestResponse> DeleteAsync(string endpoint, string token = "")
+        {
+            var request = new RestRequest(endpoint, Method.Delete);
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.AddHeader("Authorization", $"Bearer {token}");
+            }
+
+            return await _client.ExecuteAsync(request);
+        }
+
+        public async Task<RestResponse> PutAsync<T>(string endpoint, T? body, string token = "") where T : class
+        {
+            var request = new RestRequest(endpoint, Method.Put);
+            if (body != null)
+            {
+                var jsonBody = JsonSerializer.Serialize(body);
+                request.AddStringBody(jsonBody, ContentType.Json);
+            }
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.AddHeader("Authorization", $"Bearer {token}");
+            }
+
+            return await _client.ExecuteAsync(request);
+        }
     }
 }
