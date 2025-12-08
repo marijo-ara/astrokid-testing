@@ -90,9 +90,3 @@ jobs:
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
       continueOnError: true  # Los tests de UI pueden fallar si no hay backend disponible
 
-    - task: PublishCodeCoverageResults@2
-      displayName: 'Publicar cobertura de código'
-      inputs:
-        summaryFileLocation: '$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml'
-      continueOnError: true
-
