@@ -9,7 +9,7 @@ public class TestCaseAgent
 
     public TestCaseAgent()
     {
-        _agent = null!; // TODO: Implement proper AutoGen agent initialization
+        _agent = null!;
     }
 
     public async Task<string> GenerateTestCase(string requirement)

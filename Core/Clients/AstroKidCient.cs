@@ -13,7 +13,7 @@ namespace Core.Clients
         {
             var options = new RestClientOptions(ConfigManager.Settings.BaseUrl)
             {
-                // AquÃ­ podrÃ­as configurar timeouts, etc.
+                //  configurar timeouts, etc.
             };
 
             _client = new RestClient(options);
