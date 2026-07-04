@@ -15,6 +15,9 @@ Los tests están organizados por módulos de la API:
 - **Parents**: Tests para perfiles de padres (`/parent-profiles/*`)
 - **Wallet**: Tests para gestión de wallets y recompensas (`/wallet/*`)
 - **MCP**: Tests para el sistema de orquestación MCP (`/mcp/*`)
+- **DPE**: Tests para misiones diarias personalizadas (`/dpe/*`)
+- **ResilienceAssessments**: Tests para resultados de misión móvil (`/resilience-assessments/*`)
+- **MissionFlow**: Test E2E del happy path móvil vía API
 
 ## Configuración
 
@@ -74,8 +77,17 @@ dotnet test --filter "FullyQualifiedName~ParentProfilesTests"
 # Solo tests de wallet
 dotnet test --filter "FullyQualifiedName~WalletTests"
 
-# Solo tests de MCP
-dotnet test --filter "FullyQualifiedName~MCPTests"
+# Solo tests de MCP evaluate (post-misión)
+dotnet test --filter "FullyQualifiedName~McpEvaluateTests"
+
+# Solo tests DPE (misiones diarias)
+dotnet test --filter "FullyQualifiedName~DpeTests"
+
+# Solo tests de resultados de misión móvil
+dotnet test --filter "FullyQualifiedName~ResilienceAssessmentsTests"
+
+# Happy path completo misión vía API
+dotnet test --filter "FullyQualifiedName~MissionFlowTests"
 ```
 
 ## Tests Implementados

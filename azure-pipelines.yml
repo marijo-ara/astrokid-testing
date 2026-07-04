@@ -43,16 +43,38 @@ jobs:
         arguments: '--configuration $(buildConfiguration) --no-restore'
         publishTestResults: false
 
+    - task: DotNetCoreCLI@2
+      displayName: 'Instalar Playwright CLI Tool'
+      inputs:
+        command: 'custom'
+        custom: 'tool'
+        arguments: 'install --global Microsoft.Playwright.CLI'
+      continueOnError: false
+
     - task: PowerShell@2
-      displayName: 'Instalar Playwright Browsers'
+      displayName: 'Instalar Playwright Browsers (Chromium)'
       inputs:
         targetType: 'inline'
         script: |
-          cd $(System.DefaultWorkingDirectory)
-          dotnet build UI.Tests/UI.Tests.csproj
-          pwsh -Command "& { $env:PLAYWRIGHT_BROWSERS_PATH='0'; dotnet exec --runtimeconfig UI.Tests/bin/$(buildConfiguration)/net9.0/UI.Tests.runtimeconfig.json --depsfile UI.Tests/bin/$(buildConfiguration)/net9.0/UI.Tests.deps.json --additionalprobingpath $(UserProfile)/.nuget/packages Microsoft.Playwright.CLI.dll install chromium }"
+          Write-Host "Instalando Chromium para Playwright..."
+          
+          # Asegurar que playwright esté en el PATH
+          $playwrightPath = "$env:USERPROFILE\.dotnet\tools"
+          if (Test-Path $playwrightPath) {
+              $env:PATH = "$playwrightPath;$env:PATH"
+          }
+          
+          # Instalar Chromium
+          playwright install chromium
+          
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "Error: Falló la instalación de Chromium"
+              exit 1
+          }
+          
+          Write-Host "✓ Playwright browsers instalados correctamente"
         pwsh: true
-      continueOnError: true  # Continuar aunque falle, los tests de UI pueden ejecutarse después
+      continueOnError: false
 
     - task: DotNetCoreCLI@2
       displayName: 'Ejecutar tests de API'
