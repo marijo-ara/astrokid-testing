@@ -174,6 +174,18 @@ namespace API.Tests
         }
 
         /// <summary>
+        /// Skip test when backend returns 503 (database not configured or cold start on Render).
+        /// </summary>
+        protected static void AssumeBackendAvailable(RestResponse response)
+        {
+            Assume.That(
+                response.StatusCode,
+                Is.Not.EqualTo(HttpStatusCode.ServiceUnavailable),
+                "Backend returned 503. Verify DATABASE_URL and PostgreSQL on Render."
+            );
+        }
+
+        /// <summary>
         /// Valida que una respuesta HTTP tenga el código de estado esperado.
         /// </summary>
         protected void AssertStatusCode(RestResponse response, HttpStatusCode expectedStatusCode, string? message = null)

@@ -61,6 +61,8 @@ namespace API.Tests.ChildTokens
             // Act
             var response = await Client.PostAsync("/child-tokens/generate", tokenRequest, ParentToken);
 
+            AssumeBackendAvailable(response);
+
             // Assert
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
                 "Debería retornar 200 OK al generar token");
@@ -110,6 +112,8 @@ namespace API.Tests.ChildTokens
 
             // Act
             var response = await Client.PostAsync("/child-tokens/generate", tokenRequest, ParentToken);
+
+            AssumeBackendAvailable(response);
 
             // Assert
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest).Or.EqualTo(HttpStatusCode.NotFound),
@@ -182,6 +186,8 @@ namespace API.Tests.ChildTokens
             // Act
             var response = await Client.GetAsync($"/child-tokens/children/{TestParentEmail}", ParentToken);
 
+            AssumeBackendAvailable(response);
+
             // Assert
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
                 "Debería retornar 200 OK");
@@ -234,6 +240,8 @@ namespace API.Tests.ChildTokens
 
             // Act
             var response = await Client.DeleteAsync($"/child-tokens/revoke/{invalidChildId}", ParentToken);
+
+            AssumeBackendAvailable(response);
 
             // Assert
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound),

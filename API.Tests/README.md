@@ -239,6 +239,27 @@ Algunos tests pueden fallar si hay datos en conflicto en la base de datos. Consi
 - [x] Mejorar manejo de dependencias externas con documentación
 - [x] Agregar más tests de UI
 
+## Pre-release mobile (API — sustituto de Appium hoy)
+
+Antes de publicar una versión de `astro-kid-web/apps/mobile`, ejecuta el **happy path móvil vía API** (14 tests):
+
+```powershell
+cd AstroKid.Tests
+$env:ASTROKID_BASE_URL = "https://astro-kid-backend.onrender.com"
+dotnet test API.Tests\API.Tests.csproj --filter "FullyQualifiedName~MissionFlowTests|FullyQualifiedName~DpeTests|FullyQualifiedName~ResilienceAssessmentsTests|FullyQualifiedName~McpEvaluateTests"
+```
+
+| Suite | Qué valida |
+|-------|------------|
+| `MissionFlowTests` | DPE → completar misión → MCP → `daily_locked` |
+| `DpeTests` | Generación misión diaria |
+| `ResilienceAssessmentsTests` | POST resultado, borrador, 409 cooldown |
+| `McpEvaluateTests` | Evaluación post-misión |
+
+**Appium:** no hay tests Appium de AstroKid en este repo. El sandbox de aprendizaje está en `astro-kid-web/apps/mobile-tests` (demo todo-list). UI nativa móvil aún no automatizada.
+
+Si `ChildTokensTests` devuelve **503**, verifica `DATABASE_URL` + `python -m scripts.init_db` en Render.
+
 ## Mejoras Futuras
 
 - [ ] Implementar mocks para servicios externos (Firebase, Azure)
