@@ -18,6 +18,8 @@ Los tests están organizados por módulos de la API:
 - **DPE**: Tests para misiones diarias personalizadas (`/dpe/*`)
 - **ResilienceAssessments**: Tests para resultados de misión móvil (`/resilience-assessments/*`)
 - **MissionFlow**: Test E2E del happy path móvil vía API
+- **Expression**: Perfil expression + `familyMapAnswers` (mapas familiares)
+- **Safety**: `/safety-events` (historial, active-lock, acknowledge)
 
 ## Configuración
 
@@ -38,6 +40,20 @@ $env:ASTROKID_BASE_URL = "https://astrokid-480117.uc.r.appspot.com"
 
 ```powershell
 $env:ASTROKID_ENV = "QA"  # Por defecto es "QA"
+
+# UI / password-login tests (nunca commits)
+$env:ASTROKID_UI_EMAIL = "qa-parent@example.com"
+$env:ASTROKID_UI_PASSWORD = "***"
+```
+
+### Smoke vs full (P0)
+
+```powershell
+# Gate rápido (Auth, Expression, Safety, MissionFlow tagged Smoke) — sin Learning
+dotnet test API.Tests --filter "Category=Smoke&FullyQualifiedName!~Learning"
+
+# Suite API producto (excluye tutoriales Learning)
+dotnet test API.Tests --filter "FullyQualifiedName!~Learning"
 ```
 
 ## Ejecutar Tests

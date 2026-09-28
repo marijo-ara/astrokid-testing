@@ -1,5 +1,32 @@
 # Changelog - Mejoras en Tests
 
+## [2026-03] - P0 SDET harden (secrets, Smoke, Expression, Safety)
+
+### ✨ Agregado
+- **`API.Tests/Expression/ExpressionTests.cs`** — bootstrap expression + `familyMapAnswers` persist + strip `transcript` (COPPA)
+- **`API.Tests/Safety/SafetyEventsTests.cs`** — historial vacío, active-lock unlocked, auth required, acknowledge 404
+- **`UI.Tests/TestCredentials.cs`** — `ASTROKID_UI_EMAIL` / `ASTROKID_UI_PASSWORD` (sin secrets en código)
+- Categorías **`[Category("Smoke")]`** en Auth, MissionFlow, Expression, Safety, FamilyMaps UI
+- Pipeline: job **API Smoke** fail-hard; full API **excluye Learning**; UI usa env secrets
+
+### 🔧 Mejorado
+- Fix compile `DashboardPage.TryAnswerFamilyMapPendingAsync` (`HasNotText` string, no Regex)
+- `TokenTests` ya no hardcodea password real
+- UI login (Parents / Dashboard / FamilyMaps) via `TestCredentials`
+
+### 📋 Manual
+- Ver `UI.Tests/MANUAL_SMOKE_FAMILY_MAPS.md` (+ env vars abajo)
+
+## [2026-03] - Family maps parent smoke
+
+### ✨ Agregado
+- **`UI.Tests/MANUAL_SMOKE_FAMILY_MAPS.md`** — checklist manual ~5 min (dashboard pending + mapas Empatía/Resiliencia)
+- **`UI.Tests/FamilyMapsSmokeTests.cs`** — 3 smokes Playwright (superficie, abrir Empatía, responder pending si existe)
+- Locators MVP en `DashboardPage` (`family-map-pending-prompt`, `family-map-survey-progress`, open Empathy map)
+
+### 🔧 Relacionado (astro-kid-web / shared)
+- Unit tests `familyMapProfile` alineados con status `completed` del día y imports ESM
+
 ## [2024] - Mejoras Completas
 
 ### ✅ Eliminado

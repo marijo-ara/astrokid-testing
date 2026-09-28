@@ -8,19 +8,22 @@ trigger:
 variables:
   buildConfiguration: 'Release'
   solution: 'AstroKid.Tests.sln'
-  # Variables de entorno para tests (pueden ser sobrescritas en Azure DevOps)
   ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
   ASTROKID_ENV: '$(ASTROKID_ENV)'
+  # UI secrets — set in Azure DevOps variable group / Key Vault (never commit values)
+  ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+  ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+  BASE_URL: '$(BASE_URL)'
 
 jobs:
 - job: BuildAndTest
   displayName: 'Compilar y Ejecutar Tests'
   pool:
-    vmImage: 'windows-latest'  # Cambiar según tu pool disponible
+    vmImage: 'windows-latest'
   steps:
     - checkout: self
       displayName: 'Checkout código'
-    
+
     - task: UseDotNet@2
       displayName: 'Instalar .NET SDK 9.0'
       inputs:
@@ -56,34 +59,44 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "Instalando Chromium para Playwright..."
-          
-          # Asegurar que playwright esté en el PATH
           $playwrightPath = "$env:USERPROFILE\.dotnet\tools"
           if (Test-Path $playwrightPath) {
               $env:PATH = "$playwrightPath;$env:PATH"
           }
-          
-          # Instalar Chromium
           playwright install chromium
-          
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "Error: Falló la instalación de Chromium"
-              exit 1
-          }
-          
-          Write-Host "✓ Playwright browsers instalados correctamente"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
         pwsh: true
       continueOnError: false
 
+    # P0 gate: Smoke API only (Auth, Expression, Safety, MissionFlow tagged tests)
     - task: DotNetCoreCLI@2
-      displayName: 'Ejecutar tests de API'
+      displayName: 'API Smoke (Category=Smoke)'
       inputs:
         command: 'test'
         projects: 'API.Tests/API.Tests.csproj'
-        arguments: |
+        arguments: >
           --configuration $(buildConfiguration)
           --no-build
+          --filter "Category=Smoke&FullyQualifiedName!~Learning"
+          --logger trx
+          --results-directory $(Agent.TempDirectory)/TestResults
+        publishTestResults: true
+        testRunTitle: 'AstroKid API Smoke'
+      env:
+        ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
+        ASTROKID_ENV: '$(ASTROKID_ENV)'
+      continueOnError: false
+
+    # Full API product suite — excludes NUnit Learning tutorials
+    - task: DotNetCoreCLI@2
+      displayName: 'API Tests (exclude Learning)'
+      inputs:
+        command: 'test'
+        projects: 'API.Tests/API.Tests.csproj'
+        arguments: >
+          --configuration $(buildConfiguration)
+          --no-build
+          --filter "FullyQualifiedName!~Learning"
           --collect:"XPlat Code Coverage"
           --logger trx
           --results-directory $(Agent.TempDirectory)/TestResults
@@ -92,14 +105,36 @@ jobs:
       env:
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
         ASTROKID_ENV: '$(ASTROKID_ENV)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
       continueOnError: false
 
     - task: DotNetCoreCLI@2
-      displayName: 'Ejecutar tests de UI'
+      displayName: 'UI Smoke (Category=Smoke)'
       inputs:
         command: 'test'
         projects: 'UI.Tests/UI.Tests.csproj'
-        arguments: |
+        arguments: >
+          --configuration $(buildConfiguration)
+          --no-build
+          --filter "Category=Smoke"
+          --logger trx
+          --results-directory $(Agent.TempDirectory)/TestResults
+        publishTestResults: true
+        testRunTitle: 'AstroKid UI Smoke'
+      env:
+        BASE_URL: '$(BASE_URL)'
+        ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
+        ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+      # Soft until vault credentials are configured in every pipeline; smoke ignores when unset
+      continueOnError: true
+
+    - task: DotNetCoreCLI@2
+      displayName: 'UI Tests (full)'
+      inputs:
+        command: 'test'
+        projects: 'UI.Tests/UI.Tests.csproj'
+        arguments: >
           --configuration $(buildConfiguration)
           --no-build
           --collect:"XPlat Code Coverage"
@@ -110,5 +145,6 @@ jobs:
       env:
         BASE_URL: '$(BASE_URL)'
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
-      continueOnError: true  # Los tests de UI pueden fallar si no hay backend disponible
-
+        ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+      continueOnError: true
