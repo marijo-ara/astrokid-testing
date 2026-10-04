@@ -52,7 +52,7 @@ test.describe('Performance Tests', () => {
         try {
           await loginPage.isReady();
         } catch (error) {
-          console.log('Login page is NOT ready:', error.message);
+          console.log('Login page is NOT ready:', (error as Error).message);
           // Wait for page to be loaded even if specific elements are not found
           await loginPage.page.waitForLoadState('networkidle');
         }
@@ -85,10 +85,10 @@ test.describe('Performance Tests', () => {
           for (let i = 0; i < imageCount; i++) {
             const img = images.nth(i);
             try {
-              const isLoaded = await img.evaluate((el) => el.complete && el.naturalHeight !== 0);
+              const isLoaded = await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalHeight !== 0);
               if (isLoaded) loadedImages++;
             } catch (error) {
-              console.log(`Image ${i} evaluation failed:`, error.message);
+              console.log(`Image ${i} evaluation failed:`, (error as Error).message);
             }
           }
           
@@ -178,7 +178,7 @@ test.describe('Performance Tests', () => {
             await links.first().hover({ timeout: 5000 });
           }
         } catch (error) {
-          console.log('Some interactions failed:', error.message);
+          console.log('Some interactions failed:', (error as Error).message);
         }
         
         const executionTime = Date.now() - startTime;
@@ -216,7 +216,7 @@ test.describe('Performance Tests', () => {
             }
           }
         } catch (error) {
-          console.log('Animation test interactions failed:', error.message);
+          console.log('Animation test interactions failed:', (error as Error).message);
         }
         
         const animationTime = Date.now() - startTime;
@@ -304,7 +304,7 @@ test.describe('Performance Tests', () => {
             await landingPage.page.waitForTimeout(100);
           }
         } catch (error) {
-          console.log('Some memory test interactions failed:', error.message);
+          console.log('Some memory test interactions failed:', (error as Error).message);
         }
 
         // Get final memory usage
@@ -343,7 +343,7 @@ test.describe('Performance Tests', () => {
                   vitals.LCP = entry.startTime;
                 }
                 if (entry.entryType === 'first-input') {
-                  vitals.FID = entry.processingStart - entry.startTime;
+                  vitals.FID = (entry as PerformanceEventTiming).processingStart - entry.startTime;
                 }
                 if (entry.entryType === 'layout-shift') {
                   vitals.CLS += (entry as any).value;
@@ -396,7 +396,7 @@ test.describe('Performance Tests', () => {
             await links.first().tap({ timeout: 5000 });
           }
         } catch (error) {
-          console.log('Some mobile interactions failed:', error.message);
+          console.log('Some mobile interactions failed:', (error as Error).message);
           // Fallback to regular clicks if tap fails
           try {
             const buttons = landingPage.page.locator('button');
@@ -405,7 +405,7 @@ test.describe('Performance Tests', () => {
               await buttons.first().click({ timeout: 5000 });
             }
           } catch (fallbackError) {
-            console.log('Fallback click also failed:', fallbackError.message);
+            console.log('Fallback click also failed:', (fallbackError as Error).message);
           }
         }
         

@@ -192,6 +192,10 @@ jobs:
       displayName: 'Instalar dependencias'
       workingDirectory: Web.E2E
 
+    - script: npm run typecheck
+      displayName: 'Typecheck Web E2E'
+      workingDirectory: Web.E2E
+
     - script: npx playwright install --with-deps chromium
       displayName: 'Instalar Chromium'
       workingDirectory: Web.E2E

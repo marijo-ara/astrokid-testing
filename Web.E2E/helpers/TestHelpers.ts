@@ -232,7 +232,7 @@ export class TestHelpers {
       const originalSetTimeout = window.setTimeout;
       let patched = false;
       
-      window.setTimeout = function(callback: any, delay: any, ...args: any[]) {
+      (window as any).setTimeout = function(callback: any, delay: any, ...args: any[]) {
         if (!patched) {
           patched = true;
           // Try to patch after a short delay to catch the dynamic import

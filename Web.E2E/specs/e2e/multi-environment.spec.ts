@@ -78,7 +78,7 @@ test.describe('Multi-Environment Login Tests', () => {
         expect(response?.status()).toBeLessThan(400);
         console.log(`✅ Base URL accessible: ${page.url()}`);
       } catch (error) {
-        console.log(`⚠️ Base URL not accessible: ${error.message}`);
+        console.log(`⚠️ Base URL not accessible: ${(error as Error).message}`);
       }
     });
 

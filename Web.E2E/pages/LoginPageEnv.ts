@@ -130,7 +130,7 @@ export class LoginPageEnv extends BasePage {
       }, this.loginBehavior.mockUser);
       
       // Navigate to dashboard
-      await this.page.goto(`${this.baseURL}/dashboard`);
+      await this.page.goto(`${this.baseUrl}/dashboard`);
     }
     await this.page.waitForLoadState('networkidle');
   }

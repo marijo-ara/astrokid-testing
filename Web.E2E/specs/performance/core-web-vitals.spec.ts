@@ -45,7 +45,7 @@ test.describe('Core Web Vitals Tests', () => {
           return new Promise((resolve) => {
             const observer = new PerformanceObserver((list) => {
               const entries = list.getEntries();
-              const fidEntry = entries[0];
+              const fidEntry = entries[0] as PerformanceEventTiming;
               resolve(fidEntry.processingStart - fidEntry.startTime);
             });
             observer.observe({ entryTypes: ['first-input'] });
@@ -76,7 +76,8 @@ test.describe('Core Web Vitals Tests', () => {
             let clsValue = 0;
             const observer = new PerformanceObserver((list) => {
               const entries = list.getEntries();
-              entries.forEach((entry) => {
+              // LayoutShift is not in TypeScript's DOM lib yet.
+              (entries as Array<PerformanceEntry & { hadRecentInput: boolean; value: number }>).forEach((entry) => {
                 if (!entry.hadRecentInput) {
                   clsValue += entry.value;
                 }

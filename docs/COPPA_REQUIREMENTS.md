@@ -43,9 +43,9 @@ Versiones vigentes: política `2026-10-02`, aviso de IA `2026-10-03`.
 | COPPA-11 | La política de privacidad describe estas prácticas (IA apagada, qué se envía, cargo de US$0.50, proveedores) | `legalMessages.ts` | web `privacyPolicyMessages.test.ts` | `coppa-web.spec.ts` (COPPA-11) |
 | COPPA-12 | No se guardan transcripciones completas | Sanitizado en memoria, expresión y eventos de seguridad | backend `test_ai_mvp_validation.py::test_v2_safety_event_persists_without_transcript`, `::test_v5_sanitize_strips_transcripts_from_memory`, `::test_v5_audit_dict_excludes_utterance`; `test_expression_profile.py::test_sanitize_strips_transcript_and_keeps_cosmetics` | `API.Tests/Expression/ExpressionTests.cs` (transcript eliminado) |
 | COPPA-13 | Clasificación de seguridad antes de cualquier LLM; riesgo alto/crítico sin LLM y con alerta al adulto | `services/safety/` | backend `test_safety_gate.py`, `test_safety_audit_channels.py` | `API.Tests/Safety/SafetyEventsTests.cs` |
-| COPPA-14 | El adulto puede ver, exportar y borrar los datos del niño | Export y borrado en `family_profiles` | backend `test_child_data_export.py`, `test_family_remove_child.py` | **Pendiente** (ver §4) |
+| COPPA-14 | El adulto puede ver, exportar y borrar los datos del niño | Export y borrado en `family_profiles` | backend `test_child_data_export.py`, `test_family_remove_child.py` | `CoppaTests::COPPA_14_*` (exportar, borrar y que tras borrar la exportación responda 404; solo el adulto dueño) |
 | COPPA-15 | Sin contrato de datos con el proveedor, la IA no se activa | `AI_PROVIDER_DPA_ACCEPTED` | backend `test_ai_consent.py::test_provider_contract_flag_is_required` | Indirecto: `COPPA_04` lee `available` / `unavailable_reason` |
-| COPPA-16 | Datos del niño solo para su adulto; acciones sensibles solo del adulto o admin | `get_child_for_parent`, `require_child_access`, `require_admin` | backend `test_auth_and_ownership.py`, `test_wallet_api.py` | `CoppaTests::COPPA_04_Ai_Consent_Requires_Auth_And_Ownership`; `API.Tests/Wallet/WalletTests.cs` |
+| COPPA-16 | Datos del niño solo para su adulto; acciones sensibles solo del adulto o admin | `get_child_for_parent`, `require_child_access`, `require_admin` | backend `test_auth_and_ownership.py`, `test_parent_insights_auth.py`, `test_wallet_api.py` | `CoppaTests::COPPA_04_Ai_Consent_Requires_Auth_And_Ownership`, `::COPPA_16_Parent_Insights_Require_The_Childs_Own_Parent`; `API.Tests/Wallet/WalletTests.cs` |
 | COPPA-17 | Programa de seguridad escrito y política de retención escrita (regla enmendada 2025) | Proceso | — | No automatizable. Estado: **abierto** |
 
 ## 3. Cómo correr la verificación
@@ -72,8 +72,4 @@ Requisitos del entorno QA para que la capa caja negra no termine Inconclusive:
 
 ## 4. Brechas conocidas
 
-- **COPPA-14** no tiene prueba de caja negra: falta un caso que cree un niño, lo exporte y lo borre contra QA.
-- **`POST /parent-insights/{child_id}` no exige autenticación.** Sin permiso de IA responde la plantilla local,
-  pero con permiso cualquiera que conozca el `child_id` puede disparar una llamada a OpenAI para ese niño.
-  Recomendado: exigir token de adulto y propiedad del niño, y añadir el caso a `CoppaTests`.
 - **COPPA-17** depende de documentos internos (programa de seguridad, retención, DPA firmado con OpenAI).

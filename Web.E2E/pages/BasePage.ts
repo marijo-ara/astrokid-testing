@@ -1,7 +1,7 @@
 import { Page, Locator, expect } from '@playwright/test';
 
 export abstract class BasePage {
-  protected page: Page;
+  readonly page: Page;
   /** When set, goto() builds absolute URLs; otherwise Playwright use.baseURL is used. */
   protected baseUrl: string;
 

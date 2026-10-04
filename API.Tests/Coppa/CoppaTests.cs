@@ -261,6 +261,74 @@ namespace API.Tests.Coppa
         }
 
         [Test]
+        public async Task COPPA_16_Parent_Insights_Require_The_Childs_Own_Parent()
+        {
+            var family = await CreateConsentedFamilyAsync("coppa-insights-owner");
+            var body = new { child_name = "Coppa Child", child_age = 8, locale = "es", insights = new[] { new { type = "gettingStarted" } } };
+
+            var anonymous = await Client.PostAsync($"/parent-insights/{family.ChildId}", body);
+            Assert.That(anonymous.StatusCode, Is.AnyOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden), anonymous.Content);
+
+            var other = await LoginParentAsync(QaEmail("coppa-insights-other"), "Other Parent");
+            var foreign = await Client.PostAsync($"/parent-insights/{family.ChildId}", body, other);
+            AssertStatusCode(foreign, HttpStatusCode.NotFound);
+        }
+
+        // ---- Parent can review, export and delete the child's data (COPPA-14) ----
+
+        private static string ChildPath(ConsentedFamily family) =>
+            $"/family-profiles/{family.FamilyId}/children/{family.ChildId}";
+
+        [Test]
+        [Category("Smoke")]
+        public async Task COPPA_14_Parent_Can_Export_The_Childs_Data()
+        {
+            var family = await CreateConsentedFamilyAsync("coppa-export");
+
+            var response = await Client.GetAsync($"{ChildPath(family)}/export", family.ParentToken);
+
+            AssertSuccessStatusCode(response, $"export: {response.StatusCode} {response.Content}");
+            var json = AssertValidJsonResponse(response.Content,
+                "exportVersion", "childId", "profile", "missionProgress", "dailyMissions", "parentalConsents");
+            Assert.That(json.GetProperty("childId").GetString(), Is.EqualTo(family.ChildId));
+            Assert.That(json.GetProperty("profile").GetProperty("name").GetString(), Is.EqualTo("QA Child"));
+        }
+
+        [Test]
+        public async Task COPPA_14_Export_Requires_Auth_And_Ownership()
+        {
+            var family = await CreateConsentedFamilyAsync("coppa-export-owner");
+
+            var anonymous = await Client.GetAsync($"{ChildPath(family)}/export");
+            Assert.That(anonymous.StatusCode, Is.AnyOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden));
+
+            var other = await LoginParentAsync(QaEmail("coppa-export-other"), "Other Parent");
+            var foreign = await Client.GetAsync($"{ChildPath(family)}/export", other);
+            Assert.That(foreign.StatusCode, Is.AnyOf(HttpStatusCode.Forbidden, HttpStatusCode.NotFound), foreign.Content);
+
+            var foreignDelete = await Client.DeleteAsync(ChildPath(family), other);
+            Assert.That(foreignDelete.StatusCode, Is.AnyOf(HttpStatusCode.Forbidden, HttpStatusCode.NotFound), foreignDelete.Content);
+        }
+
+        [Test]
+        public async Task COPPA_14_Parent_Can_Delete_The_Child_And_Its_Data_Is_Gone()
+        {
+            var family = await CreateConsentedFamilyAsync("coppa-delete");
+
+            var delete = await Client.DeleteAsync(ChildPath(family), family.ParentToken);
+            AssertSuccessStatusCode(delete, $"delete: {delete.StatusCode} {delete.Content}");
+
+            var remaining = AssertValidJsonResponse(delete.Content, "children").GetProperty("children");
+            foreach (var child in remaining.EnumerateArray())
+            {
+                Assert.That(child.GetProperty("id").GetString(), Is.Not.EqualTo(family.ChildId));
+            }
+
+            var export = await Client.GetAsync($"{ChildPath(family)}/export", family.ParentToken);
+            AssertStatusCode(export, HttpStatusCode.NotFound);
+        }
+
+        [Test]
         public async Task COPPA_10_Child_Voice_Is_Never_Processed()
         {
             var family = await CreateConsentedFamilyAsync("coppa-voice");

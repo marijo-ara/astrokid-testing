@@ -113,7 +113,7 @@ test.describe('Dashboard - Smoke Tests', () => {
         // Use shorter timeout
         await dashboardPage.page.locator('[data-testid="user-menu-button"]').click({ timeout: 5000 });
       } catch (error) {
-        console.log('Error opening user menu:', error.message);
+        console.log('Error opening user menu:', (error as Error).message);
         // Try alternative approach - look for user menu button
         const userMenuButton = dashboardPage.page.locator('[data-testid="user-menu-button"], [data-testid="user-menu"], button[aria-label*="menu"], button[aria-label*="usuario"]');
         const buttonCount = await userMenuButton.count();
@@ -143,7 +143,7 @@ test.describe('Dashboard - Smoke Tests', () => {
             if (isVisible) break;
           }
         } catch (error) {
-          console.log(`Selector ${selector} failed:`, error.message);
+          console.log(`Selector ${selector} failed:`, (error as Error).message);
         }
       }
       
