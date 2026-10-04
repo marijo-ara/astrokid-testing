@@ -17,13 +17,8 @@ namespace API.Tests.DPE
     {
       Assume.That(ParentToken, Is.Not.Null, "Requires /auth/dev-login");
 
-      var email = $"dpe-{Guid.NewGuid():N}@example.com";
-      var login = await Client.PostAsync("/auth/dev-login", new { email, name = "DPE Parent" });
-      AssumeBackendAvailable(login);
-      AssertSuccessStatusCode(login);
-      var token = JsonSerializer.Deserialize<JsonElement>(login.Content!)
-        .GetProperty("access_token")
-        .GetString()!;
+      var email = QaEmail("dpe");
+      var token = await LoginParentWithConsentAsync(email, "DPE Parent");
 
       var familyProfile = new
       {

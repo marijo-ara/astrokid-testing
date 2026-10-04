@@ -22,7 +22,7 @@ namespace API.Tests.ChildTokens
                 try
                 {
                     var familyProfile = CreateTestFamilyProfile();
-                    var createResponse = await Client.PostAsync("/family-profiles", familyProfile, ParentToken);
+                    var createResponse = await Client.PostAsync("/family-profiles/", familyProfile, ParentToken);
                     
                     if (createResponse.IsSuccessStatusCode && createResponse.Content != null)
                     {

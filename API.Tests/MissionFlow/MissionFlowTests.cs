@@ -19,48 +19,18 @@ namespace API.Tests.MissionFlow
     [Category("Smoke")]
     public async Task Daily_Mission_API_Flow_Should_Work_For_Child()
     {
-      Assume.That(ParentToken, Is.Not.Null, "Requires /auth/dev-login on the target backend");
-
-      var uniqueEmail = $"mission-flow-smoke-{Guid.NewGuid():N}@example.com";
-      var familyResponse = await Client.PostAsync(
-        "/family-profiles/",
-        FamilyProfile(uniqueEmail, "Smoke Child"),
-        ParentToken!
-      );
-      Assume.That(
-        familyResponse.IsSuccessStatusCode,
-        Is.True,
-        $"Family profile requires DB-backed parent auth. Status: {familyResponse.StatusCode}, body: {familyResponse.Content}"
-      );
-
-      var familyJson = JsonSerializer.Deserialize<JsonElement>(familyResponse.Content!);
+      var (token, familyJson) = await CreateFamilyAsync("mission-flow-smoke", "Smoke Child");
       var childId = familyJson.GetProperty("children")[0].GetProperty("id").GetString()!;
-      RegisterResourceForCleanup(ResourceType.FamilyProfile, familyJson.GetProperty("id").GetString()!);
 
-      await RunDailyMissionFlowAsync(childId, ParentToken!);
+      await RunDailyMissionFlowAsync(childId, token);
     }
 
     [Test]
     public async Task Full_Mobile_Login_Plus_Mission_Should_Work_When_Parent_Auth_Available()
     {
-      Assume.That(ParentToken, Is.Not.Null, "Requires /auth/dev-login on the target backend");
-
-      var uniqueEmail = $"mission-flow-{Guid.NewGuid():N}@example.com";
-      var familyResponse = await Client.PostAsync(
-        "/family-profiles/",
-        FamilyProfile(uniqueEmail, "Mission Flow Child"),
-        ParentToken!
-      );
-      Assume.That(
-        familyResponse.IsSuccessStatusCode,
-        Is.True,
-        $"Family profile requires DB-backed parent auth. Status: {familyResponse.StatusCode}, body: {familyResponse.Content}"
-      );
-
-      var familyJson = JsonSerializer.Deserialize<JsonElement>(familyResponse.Content!);
+      var (token, familyJson) = await CreateFamilyAsync("mission-flow", "Mission Flow Child");
       var childId = familyJson.GetProperty("children")[0].GetProperty("id").GetString()!;
       var childToken = familyJson.GetProperty("children")[0].GetProperty("token").GetString();
-      RegisterResourceForCleanup(ResourceType.FamilyProfile, familyJson.GetProperty("id").GetString()!);
 
       var validateResponse = await Client.PostAsync(
         "/child-tokens/validate",
@@ -72,7 +42,17 @@ namespace API.Tests.MissionFlow
         Is.True
       );
 
-      await RunDailyMissionFlowAsync(childId, ParentToken!);
+      await RunDailyMissionFlowAsync(childId, token);
+    }
+
+    private async Task<(string Token, JsonElement Family)> CreateFamilyAsync(string label, string childName)
+    {
+      var email = QaEmail(label);
+      var token = await LoginParentWithConsentAsync(email, TestParentName);
+      var familyResponse = await Client.PostAsync("/family-profiles/", FamilyProfile(email, childName), token);
+      AssumeBackendAvailable(familyResponse);
+      AssertSuccessStatusCode(familyResponse, $"family-profiles: {familyResponse.StatusCode} {familyResponse.Content}");
+      return (token, JsonSerializer.Deserialize<JsonElement>(familyResponse.Content!));
     }
 
     private object FamilyProfile(string email, string childName) => new

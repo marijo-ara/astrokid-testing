@@ -1,5 +1,25 @@
 # Changelog - Mejoras en Tests
 
+## [2026-10] - Pirámide de pruebas: caja negra centralizada + COPPA
+
+### ✨ Agregado
+- **`Web.E2E/`** — suite Playwright TS movida desde `astro-kid-web/apps/web/tests` (config, page objects, specs smoke/e2e/accesibilidad/performance)
+- **`Web.E2E/specs/privacy/coppa-web.spec.ts`** — sin trackers antes del opt-in ni en rutas infantiles; política con IA apagada y cargo US$0.50; enlace email-plus falso rechazado
+- **`Mobile.E2E/`** — sandbox Appium movido desde `astro-kid-web/apps/mobile-tests` (sin `chromedriver.exe`)
+- **`API.Tests/Coppa/CoppaTests.cs`** — 12 casos COPPA-01..10 (email-plus, permiso de IA, cargo, webhook falso, revocación, insights locales, voz)
+- **`API.Tests/Health/HealthSmokeTests.cs`** — portado de `test_qa_endpoints.py`
+- **`UI.Tests/AuthOAuthFlowTests.cs`** — flujo OAuth en navegador portado de `astrokid-auth`
+- `BaseApiTest`: `QaEmail`, `LoginParentWithConsentAsync`, `CompleteEmailPlusAsync`, `CreateConsentedFamilyAsync`; `AstroKidClient.SendAsync` con headers
+- Pipeline: paso **API COPPA** bloqueante; job **Web E2E**; `AUTH_BASE_URL` para UI
+- Docs: `docs/TEST_STRATEGY.md`, `docs/COPPA_REQUIREMENTS.md` (mapa de datos + matriz de trazabilidad)
+
+### 🔧 Mejorado
+- **`WalletTests`** reescrito con adulto y sesión de niño reales (antes llamaba sin token y esperaba 200)
+- `MissionFlowTests`, `FamilyProfilesTests`: el adulto que crea la familia es el del token (antes 403 → omitidas en silencio)
+- Rutas `/family-profiles/` con barra final (evita el redirect 307); `parental_consent_acknowledged` en los payloads
+- Edad inválida de prueba: 14 (el rango del producto es 6–12)
+- DPE, Expression, Safety: login con consentimiento email-plus
+
 ## [2026-03] - P0 SDET harden (secrets, Smoke, Expression, Safety)
 
 ### ✨ Agregado

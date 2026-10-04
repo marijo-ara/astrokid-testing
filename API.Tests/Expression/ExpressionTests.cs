@@ -19,16 +19,8 @@ namespace API.Tests.Expression
     {
       Assume.That(ParentToken, Is.Not.Null, "Requires /auth/dev-login");
 
-      var email = $"expr-{Guid.NewGuid():N}@example.com";
-      var login = await Client.PostAsync(
-        "/auth/dev-login",
-        new { email, name = "Expr Parent" }
-      );
-      AssumeBackendAvailable(login);
-      AssertSuccessStatusCode(login);
-      var token = JsonSerializer.Deserialize<JsonElement>(login.Content!)
-        .GetProperty("access_token")
-        .GetString()!;
+      var email = QaEmail("expr");
+      var token = await LoginParentWithConsentAsync(email, "Expr Parent");
 
       var familyProfile = new
       {

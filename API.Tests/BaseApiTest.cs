@@ -21,8 +21,17 @@ namespace API.Tests
         protected AstroKidClient Client { get; private set; } = null!;
         protected string? ParentToken { get; private set; }
         protected string? FirebaseToken { get; private set; }
-        protected string TestParentEmail { get; } = "test-parent@example.com";
+        // Resend test address: accepted and "delivered" without reaching a real inbox or bouncing.
+        protected string TestParentEmail { get; } = "delivered+astrokid-qa-parent@resend.dev";
         protected string TestParentName { get; } = "Test Parent";
+
+        /// <summary>
+        /// Why the shared parent could not complete COPPA email-plus consent, or null when it did
+        /// (or the backend predates the gate).
+        /// </summary>
+        protected string? ParentConsentProblem { get; private set; }
+
+        protected const string EmailPlusPath = "/family-profiles/parental-consent/email-plus";
 
         // Lista de recursos creados durante los tests para cleanup
         private readonly List<TestResource> _createdResources = new List<TestResource>();
@@ -48,6 +57,11 @@ namespace API.Tests
             try
             {
                 ParentToken = await GetParentTokenAsync();
+                ParentConsentProblem = await CompleteEmailPlusAsync(ParentToken);
+                if (ParentConsentProblem != null)
+                {
+                    Console.WriteLine($"Warning: COPPA email-plus incompleto para el padre de prueba: {ParentConsentProblem}");
+                }
             }
             catch (Exception ex)
             {
@@ -123,6 +137,173 @@ namespace API.Tests
         }
 
         /// <summary>
+        /// Unique Resend test address for a fresh parent.
+        /// </summary>
+        protected static string QaEmail(string label) => $"delivered+{label}-{Guid.NewGuid():N}@resend.dev";
+
+        /// <summary>
+        /// Dev-login for an arbitrary parent. Skips when the backend is unavailable.
+        /// </summary>
+        protected async Task<string> LoginParentAsync(string email, string name)
+        {
+            var login = await Client.PostAsync("/auth/dev-login", new { email, name });
+            AssumeBackendAvailable(login);
+            AssertSuccessStatusCode(login, $"dev-login falló: {login.StatusCode} {login.Content}");
+            return JsonSerializer.Deserialize<JsonElement>(login.Content!)
+                .GetProperty("access_token")
+                .GetString()!;
+        }
+
+        /// <summary>
+        /// Dev-login plus COPPA email-plus consent, so the parent may create child profiles.
+        /// </summary>
+        protected async Task<string> LoginParentWithConsentAsync(string email, string name)
+        {
+            var token = await LoginParentAsync(email, name);
+            var problem = await CompleteEmailPlusAsync(token);
+            if (problem != null)
+            {
+                Assert.Inconclusive($"COPPA email-plus no completado: {problem}");
+            }
+            return token;
+        }
+
+        protected void AssumeParentConsent()
+        {
+            Assume.That(ParentToken, Is.Not.Null, "Requires /auth/dev-login on the target backend");
+            if (ParentConsentProblem != null)
+            {
+                Assert.Inconclusive($"COPPA email-plus no completado: {ParentConsentProblem}");
+            }
+        }
+
+        /// <summary>
+        /// Walks the email-plus flow (notice link, then confirmation link) through the API.
+        /// Needs COPPA_EMAIL_PLUS_EXPOSE_TOKEN=true and working Resend on the QA backend;
+        /// that flag must never be set in production.
+        /// Returns null when consent is in place or the backend has no gate.
+        /// </summary>
+        protected async Task<string?> CompleteEmailPlusAsync(string token)
+        {
+            var status = await Client.GetAsync(EmailPlusPath, token);
+            if (status.StatusCode == HttpStatusCode.NotFound || status.StatusCode == HttpStatusCode.MethodNotAllowed)
+            {
+                return null;
+            }
+            if (!status.IsSuccessStatusCode)
+            {
+                return $"GET {EmailPlusPath} devolvió {(int)status.StatusCode}";
+            }
+            if (ReadString(status.Content, "status") == "confirmed")
+            {
+                return null;
+            }
+
+            var start = await Client.PostAsync($"{EmailPlusPath}/start", new { locale = "es" }, token);
+            if (!start.IsSuccessStatusCode)
+            {
+                return $"start devolvió {(int)start.StatusCode} {start.Content}. Revisa RESEND_API_KEY en el backend QA.";
+            }
+            if (ReadString(start.Content, "status") == "confirmed")
+            {
+                return null;
+            }
+
+            var link = ReadString(start.Content, "token");
+            for (var step = 0; step < 2; step++)
+            {
+                if (link == null)
+                {
+                    return "El backend no expone el token. Activa COPPA_EMAIL_PLUS_EXPOSE_TOKEN=true solo en QA.";
+                }
+                var consume = await Client.PostAsync($"{EmailPlusPath}/consume", new { token = link, locale = "es" });
+                if (!consume.IsSuccessStatusCode)
+                {
+                    return $"consume devolvió {(int)consume.StatusCode} {consume.Content}";
+                }
+                if (ReadString(consume.Content, "status") == "confirmed")
+                {
+                    return null;
+                }
+                link = ReadString(consume.Content, "token");
+            }
+            return "El flujo email-plus no llegó a 'confirmed'.";
+        }
+
+        /// <summary>
+        /// Parent with email-plus consent, one child and a child session, as the apps set it up.
+        /// </summary>
+        protected async Task<ConsentedFamily> CreateConsentedFamilyAsync(string label, int age = 8)
+        {
+            var email = QaEmail(label);
+            var parentToken = await LoginParentWithConsentAsync(email, "QA Parent");
+
+            var family = await Client.PostAsync("/family-profiles/", new
+            {
+                parent = new { parent_name = "QA Parent", parent_email = email },
+                child = new
+                {
+                    name = "QA Child",
+                    birthdate = DateTime.UtcNow.AddYears(-age).ToString("yyyy-MM-dd"),
+                    age,
+                    interests = new[] { "space" },
+                    avatarId = "nova",
+                    parental_consent_acknowledged = true,
+                    selectedAdjectives = new[]
+                    {
+                        new { id = "1", word = "curious", category = "personality", emoji = "🤔" },
+                        new { id = "2", word = "brave", category = "personality", emoji = "🦁" },
+                        new { id = "3", word = "creative", category = "personality", emoji = "🎨" }
+                    }
+                }
+            }, parentToken);
+            AssumeBackendAvailable(family);
+            AssertSuccessStatusCode(family, $"family-profiles: {family.StatusCode} {family.Content}");
+
+            var familyJson = JsonSerializer.Deserialize<JsonElement>(family.Content!);
+            var familyId = familyJson.GetProperty("id").GetString()!;
+            var childId = familyJson.GetProperty("children")[0].GetProperty("id").GetString()!;
+
+            var session = await Client.PostAsync("/child-tokens/generate", new
+            {
+                child_id = childId,
+                parent_email = email,
+                child_name = "QA Child",
+                age
+            }, parentToken);
+            AssertSuccessStatusCode(session, $"child-tokens/generate: {session.StatusCode} {session.Content}");
+            var childToken = ReadString(session.Content, "token")!;
+
+            return new ConsentedFamily(
+                email,
+                parentToken,
+                familyId,
+                childId,
+                new Dictionary<string, string> { ["X-Child-Id"] = childId, ["X-Child-Token"] = childToken });
+        }
+
+        protected static string? ReadString(string? content, string property)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return null;
+            }
+            try
+            {
+                var json = JsonSerializer.Deserialize<JsonElement>(content);
+                return json.ValueKind == JsonValueKind.Object
+                    && json.TryGetProperty(property, out var value)
+                    && value.ValueKind == JsonValueKind.String
+                    ? value.GetString()
+                    : null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Helper para crear un perfil de familia de prueba.
         /// </summary>
         protected object CreateTestFamilyProfile(string? childName = null, int? childAge = null)
@@ -141,6 +322,7 @@ namespace API.Tests
                     age = childAge ?? 7,
                     interests = new[] { "ciencia", "espacio", "aventuras" },
                     avatarId = "avatar-001",
+                    parental_consent_acknowledged = true,
                     selectedAdjectives = new[]
                     {
                         new { id = "adj1", word = "valiente", category = "personalidad", emoji = "🦁" },
@@ -271,6 +453,13 @@ namespace API.Tests
         ParentProfile,
         Wallet
     }
+
+    public sealed record ConsentedFamily(
+        string ParentEmail,
+        string ParentToken,
+        string FamilyId,
+        string ChildId,
+        IDictionary<string, string> ChildHeaders);
 
     /// <summary>
     /// Representa un recurso creado durante un test para cleanup.

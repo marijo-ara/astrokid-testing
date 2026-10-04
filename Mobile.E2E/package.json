@@ -1,0 +1,45 @@
+{
+  "name": "mobile-tests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prewdio": "npm --prefix ../../packages/shared run build",
+    "serenity": "failsafe serenity:clean wdio serenity:report",
+    "serenity:clean": "rimraf target",
+    "wdio": "wdio run ./wdio.conf.ts",
+    "serenity:report": "serenity-bdd run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "dependencies": {
+    "astro-kid-shared": "file:../../packages/shared"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^12.2.0",
+    "@serenity-js/assertions": "^3.36.0",
+    "@serenity-js/console-reporter": "^3.36.0",
+    "@serenity-js/core": "^3.36.0",
+    "@serenity-js/cucumber": "^3.36.0",
+    "@serenity-js/rest": "^3.36.0",
+    "@serenity-js/serenity-bdd": "^3.36.0",
+    "@serenity-js/web": "^3.36.0",
+    "@serenity-js/webdriverio": "^3.36.0",
+    "@types/node": "^24.10.1",
+    "@wdio/appium-service": "^9.20.0",
+    "@wdio/cli": "^9.20.0",
+    "@wdio/local-runner": "^9.20.0",
+    "@wdio/mocha-framework": "^9.20.0",
+    "@wdio/spec-reporter": "^9.20.0",
+    "@wdio/visual-service": "^9.0.0",
+    "appium": "^3.1.1",
+    "appium-uiautomator2-driver": "^6.1.1",
+    "images": "^3.2.4",
+    "npm-failsafe": "^0.4.3",
+    "rimraf": "^6.1.0",
+    "webdriverio": "^9.20.0"
+  }
+}

@@ -19,16 +19,8 @@ namespace API.Tests.Safety
     {
       Assume.That(ParentToken, Is.Not.Null, "Requires /auth/dev-login");
 
-      var email = $"safety-{Guid.NewGuid():N}@example.com";
-      var login = await Client.PostAsync(
-        "/auth/dev-login",
-        new { email, name = "Safety Parent" }
-      );
-      AssumeBackendAvailable(login);
-      AssertSuccessStatusCode(login);
-      var token = JsonSerializer.Deserialize<JsonElement>(login.Content!)
-        .GetProperty("access_token")
-        .GetString()!;
+      var email = QaEmail("safety");
+      var token = await LoginParentWithConsentAsync(email, "Safety Parent");
 
       var familyProfile = new
       {
