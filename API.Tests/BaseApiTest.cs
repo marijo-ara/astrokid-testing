@@ -43,7 +43,8 @@ namespace API.Tests
             var baseUrl = Environment.GetEnvironmentVariable("ASTROKID_BASE_URL");
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
-                Assert.Ignore("ASTROKID_BASE_URL no está configurada. Configura esta variable de entorno para ejecutar los tests.");
+                baseUrl = "https://astro-kid-backend-1.onrender.com";
+                Environment.SetEnvironmentVariable("ASTROKID_BASE_URL", baseUrl);
             }
         }
 

@@ -1,5 +1,5 @@
 export const TEST_CONSTANTS = {
-  BASE_URL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+  BASE_URL: process.env.PLAYWRIGHT_BASE_URL || 'https://astro-kid-web-qa.vercel.app',
   TIMEOUTS: {
     SHORT: 5000,
     MEDIUM: 10000,

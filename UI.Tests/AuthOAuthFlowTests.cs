@@ -18,7 +18,8 @@ namespace UI.Tests;
 public class AuthOAuthFlowTests : UiTestBase
 {
     private const string State = "playwright-state";
-    private static string AuthBaseUrl => (Environment.GetEnvironmentVariable("AUTH_BASE_URL") ?? "").TrimEnd('/');
+    private static string AuthBaseUrl =>
+        (Environment.GetEnvironmentVariable("AUTH_BASE_URL") ?? "https://astrokid-auth.onrender.com").TrimEnd('/');
     private static string RedirectUri => $"{AuthBaseUrl}/test-callback";
 
     [OneTimeSetUp]

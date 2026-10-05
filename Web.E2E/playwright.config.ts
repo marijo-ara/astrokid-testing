@@ -5,6 +5,7 @@ import { getCurrentEnvironment } from './config/environments';
  * Black-box suite for the AstroKid web app.
  *
  * Target: PLAYWRIGHT_BASE_URL, or PLAYWRIGHT_ENV=localhost|dev|qa|staging|prod.
+ * Default environment is qa (https://astro-kid-web-qa.vercel.app).
  * The app is never imported. For a local run, start astro-kid-web first with
  * NEXT_PUBLIC_PLAYWRIGHT_E2E=true, or set WEB_APP_DIR so this config starts it.
  */

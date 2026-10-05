@@ -8,8 +8,8 @@ namespace UI.Tests;
 public static class TestConfig
 {
     public static string BaseUrl =>
-        Environment.GetEnvironmentVariable("BASE_URL") 
-        ?? "https://astro-kid-web-dev.vercel.app"; // valor por defecto
+        Environment.GetEnvironmentVariable("BASE_URL")
+        ?? "https://astro-kid-web-qa.vercel.app";
 }
 
 public class UiTestBase

@@ -39,7 +39,7 @@ export const environments: Record<string, EnvironmentConfig> = {
   qa: {
     name: 'QA Environment',
     baseURL: 'https://astro-kid-web-qa.vercel.app',
-    apiURL: 'https://api-qa.astrokid.com',
+    apiURL: 'https://astro-kid-backend-1.onrender.com',
     loginBehavior: 'firebase',
     authProvider: 'email',
     mockData: false,
@@ -74,7 +74,7 @@ export const environments: Record<string, EnvironmentConfig> = {
   }
 };
 
-export const getEnvironment = (env: string = 'localhost'): EnvironmentConfig => {
+export const getEnvironment = (env: string = 'qa'): EnvironmentConfig => {
   const config = environments[env];
   if (!config) {
     throw new Error(`Environment '${env}' not found. Available environments: ${Object.keys(environments).join(', ')}`);
@@ -83,7 +83,7 @@ export const getEnvironment = (env: string = 'localhost'): EnvironmentConfig => 
 };
 
 export const getCurrentEnvironment = (): EnvironmentConfig => {
-  const env = process.env.PLAYWRIGHT_ENV || 'localhost';
+  const env = process.env.PLAYWRIGHT_ENV || 'qa';
   const config = getEnvironment(env);
   return {
     ...config,
