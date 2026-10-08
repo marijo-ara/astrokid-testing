@@ -3,17 +3,17 @@ using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using RestSharp;
 
 namespace API.Tests.ResilienceAssessments
 {
   /// <summary>
   /// Tests for daily mission results — sync path used by the mobile app after finishMission.
+  /// Each test uses a consented family and the child session headers the app sends.
   /// </summary>
   [TestFixture]
   public class ResilienceAssessmentsTests : BaseApiTest
   {
-    private static string NewChildId() => $"resilience-test-{Guid.NewGuid():N}";
-
     private static object SampleAssessment(string childId, string? completedAt = null) => new
     {
       date = DateTime.UtcNow.ToString("yyyy-MM-dd"),
@@ -32,14 +32,19 @@ namespace API.Tests.ResilienceAssessments
       reward_coins = 10,
     };
 
+    private Task<ConsentedFamily> FamilyAsync() => CreateConsentedFamilyAsync("resilience");
+
+    private Task<RestResponse> AsChild(ConsentedFamily family, Method method, string path, object? body = null) =>
+      Client.SendAsync(method, path, body, headers: family.ChildHeaders);
+
     [Test]
     public async Task PostAssessment_Should_Store_Result_And_Return_Streak()
     {
-      var childId = NewChildId();
+      var family = await FamilyAsync();
 
-      var response = await Client.PostAsync($"/resilience-assessments/{childId}", SampleAssessment(childId));
+      var response = await AsChild(family, Method.Post, $"/resilience-assessments/{family.ChildId}", SampleAssessment(family.ChildId));
 
-      AssertSuccessStatusCode(response);
+      AssertSuccessStatusCode(response, $"{response.StatusCode} {response.Content}");
       var json = AssertValidJsonResponse(response.Content, "history", "currentStreak");
 
       Assert.That(json.GetProperty("currentStreak").GetInt32(), Is.GreaterThanOrEqualTo(1));
@@ -49,11 +54,11 @@ namespace API.Tests.ResilienceAssessments
     [Test]
     public async Task GetChildState_Should_Report_Daily_Locked_After_Completion()
     {
-      var childId = NewChildId();
+      var family = await FamilyAsync();
 
-      await Client.PostAsync($"/resilience-assessments/{childId}", SampleAssessment(childId));
+      await AsChild(family, Method.Post, $"/resilience-assessments/{family.ChildId}", SampleAssessment(family.ChildId));
 
-      var stateResponse = await Client.GetAsync($"/resilience-assessments/{childId}/state");
+      var stateResponse = await AsChild(family, Method.Get, $"/resilience-assessments/{family.ChildId}/state");
       AssertSuccessStatusCode(stateResponse);
 
       var state = JsonSerializer.Deserialize<JsonElement>(stateResponse.Content!);
@@ -67,12 +72,13 @@ namespace API.Tests.ResilienceAssessments
     [Test]
     public async Task PostAssessment_Should_Return_409_When_Daily_Mission_Already_Completed()
     {
-      var childId = NewChildId();
+      var family = await FamilyAsync();
+      var path = $"/resilience-assessments/{family.ChildId}";
 
-      var first = await Client.PostAsync($"/resilience-assessments/{childId}", SampleAssessment(childId));
+      var first = await AsChild(family, Method.Post, path, SampleAssessment(family.ChildId));
       AssertSuccessStatusCode(first);
 
-      var second = await Client.PostAsync($"/resilience-assessments/{childId}", SampleAssessment(childId));
+      var second = await AsChild(family, Method.Post, path, SampleAssessment(family.ChildId));
 
       Assert.That(second.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
       AssertErrorResponse(second.Content, HttpStatusCode.Conflict);
@@ -81,12 +87,13 @@ namespace API.Tests.ResilienceAssessments
     [Test]
     public async Task PostAssessment_Should_Return_400_On_Child_Id_Mismatch()
     {
-      var childId = NewChildId();
-      var otherChildId = NewChildId();
+      var family = await FamilyAsync();
 
-      var response = await Client.PostAsync(
-        $"/resilience-assessments/{childId}",
-        SampleAssessment(otherChildId)
+      var response = await AsChild(
+        family,
+        Method.Post,
+        $"/resilience-assessments/{family.ChildId}",
+        SampleAssessment($"other-{Guid.NewGuid():N}")
       );
 
       Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -95,7 +102,8 @@ namespace API.Tests.ResilienceAssessments
     [Test]
     public async Task SessionDraft_Should_Persist_And_Clear()
     {
-      var childId = NewChildId();
+      var family = await FamilyAsync();
+      var path = $"/resilience-assessments/{family.ChildId}";
       var now = DateTime.UtcNow.ToString("o");
 
       var updateBody = new
@@ -120,10 +128,10 @@ namespace API.Tests.ResilienceAssessments
         },
       };
 
-      var putResponse = await Client.PutAsync($"/resilience-assessments/{childId}/session", updateBody);
+      var putResponse = await AsChild(family, Method.Put, $"{path}/session", updateBody);
       AssertSuccessStatusCode(putResponse);
 
-      var stateAfterDraft = await Client.GetAsync($"/resilience-assessments/{childId}/state");
+      var stateAfterDraft = await AsChild(family, Method.Get, $"{path}/state");
       AssertSuccessStatusCode(stateAfterDraft);
       var draftState = JsonSerializer.Deserialize<JsonElement>(stateAfterDraft.Content!);
       Assert.That(
@@ -132,10 +140,10 @@ namespace API.Tests.ResilienceAssessments
         Is.True
       );
 
-      var clearResponse = await Client.DeleteAsync($"/resilience-assessments/{childId}/session");
+      var clearResponse = await AsChild(family, Method.Delete, $"{path}/session");
       AssertSuccessStatusCode(clearResponse);
 
-      var stateAfterClear = await Client.GetAsync($"/resilience-assessments/{childId}/state");
+      var stateAfterClear = await AsChild(family, Method.Get, $"{path}/state");
       var cleared = JsonSerializer.Deserialize<JsonElement>(stateAfterClear.Content!);
       Assert.That(
         !JsonTestHelpers.TryGetProperty(cleared, "sessionDraft", out var clearedDraft)
@@ -147,14 +155,35 @@ namespace API.Tests.ResilienceAssessments
     [Test]
     public async Task GetHistory_Should_Return_Empty_For_New_Child()
     {
-      var childId = NewChildId();
+      var family = await FamilyAsync();
 
-      var response = await Client.GetAsync($"/resilience-assessments/{childId}");
+      var response = await AsChild(family, Method.Get, $"/resilience-assessments/{family.ChildId}");
       AssertSuccessStatusCode(response);
 
       var json = JsonSerializer.Deserialize<JsonElement>(response.Content!);
       Assert.That(JsonTestHelpers.GetProperty(json, "results").GetArrayLength(), Is.EqualTo(0));
-      Assert.That(JsonTestHelpers.GetProperty(json, "childId").GetString(), Is.EqualTo(childId));
+      Assert.That(JsonTestHelpers.GetProperty(json, "childId").GetString(), Is.EqualTo(family.ChildId));
+    }
+
+    [Test]
+    [Category("Smoke")]
+    public async Task Results_Require_Credentials()
+    {
+      var response = await Client.GetAsync($"/resilience-assessments/resilience-test-{Guid.NewGuid():N}");
+      AssumeBackendAvailable(response);
+
+      Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
+    public async Task Child_Session_Cannot_Read_Another_Childs_Results()
+    {
+      var family = await FamilyAsync();
+      var other = await FamilyAsync();
+
+      var response = await AsChild(family, Method.Get, $"/resilience-assessments/{other.ChildId}");
+
+      Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
   }
 }

@@ -269,6 +269,17 @@ namespace API.Tests.FamilyProfiles
                 }
             };
 
+            // Each child needs its own email-plus consent (COPPA).
+            var withoutConsent = await Client.PostAsync($"/family-profiles/{familyId}/children", newChild, token);
+            Assert.That(withoutConsent.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden), withoutConsent.Content);
+            Assert.That(withoutConsent.Content, Does.Contain("EMAIL_PLUS_REQUIRED"));
+
+            var problem = await CompleteEmailPlusAsync(token);
+            if (problem != null)
+            {
+                Assert.Inconclusive($"COPPA email-plus no completado: {problem}");
+            }
+
             // Act
             var response = await Client.PostAsync($"/family-profiles/{familyId}/children", newChild, token);
 
