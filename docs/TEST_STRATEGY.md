@@ -57,6 +57,15 @@ los jobs Playwright de `astro-kid-web/.gitlab-ci.yml`, el job `test_qa_endpoints
   (`LoginParentWithConsentAsync`, `CreateConsentedFamilyAsync` en `BaseApiTest`).
 - Sin email-plus disponible en el entorno, esas pruebas terminan **Inconclusive** con el motivo, no en verde falso.
 
+## Licencias (B2B2C)
+
+| Capa | Dónde | Qué cubre |
+| --- | --- | --- |
+| Unit | `astro-kid-backend/tests/unit/test_license_plan_switch.py` y `test_entitlements.py` | Free 10 → escuela 100 → revocación en pausa → Premium, en padre, niño y arco Free |
+| Integración | `astro-kid-backend/tests/integration/test_b2b2c_school_tiers.py` | Los mismos cambios por HTTP con `TestClient` |
+| Caja negra | `API.Tests/Licenses/LicensePyramidTests.cs` | Familia nueva en QA es Free (10). Admin y códigos inválidos se rechazan. No crea escuelas en el backend compartido |
+| Web / móvil | `childLicenseLabel.test.ts`, `missionQuotaDisplay.test.mjs` | La etiqueta y el contador siguen el plan |
+
 ## Pendiente
 
 - `Web.E2E`: `npm run typecheck` reporta errores de tipos heredados (specs de performance usan `page` protegido).
