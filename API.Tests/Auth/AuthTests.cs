@@ -5,9 +5,12 @@ using NUnit.Framework;
 namespace API.Tests.Auth
 {
     [TestFixture]
+    [Category("API")]
+    [Category("Auth")]
     public class AuthTests : BaseApiTest
     {
         [Test]
+        [Category("Smoke")]
         public async Task DevLogin_Should_Return_Token_With_Valid_Email()
         {
             // Arrange

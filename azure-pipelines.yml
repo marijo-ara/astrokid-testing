@@ -8,19 +8,25 @@ trigger:
 variables:
   buildConfiguration: 'Release'
   solution: 'AstroKid.Tests.sln'
-  # Variables de entorno para tests (pueden ser sobrescritas en Azure DevOps)
   ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
   ASTROKID_ENV: '$(ASTROKID_ENV)'
+  # UI secrets — set in Azure DevOps variable group / Key Vault (never commit values)
+  ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+  ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+  BASE_URL: '$(BASE_URL)'
+  # Web.E2E (Playwright TS) and the astrokid-auth OAuth browser flow
+  PLAYWRIGHT_BASE_URL: '$(PLAYWRIGHT_BASE_URL)'
+  AUTH_BASE_URL: '$(AUTH_BASE_URL)'
 
 jobs:
 - job: BuildAndTest
   displayName: 'Compilar y Ejecutar Tests'
   pool:
-    vmImage: 'windows-latest'  # Cambiar según tu pool disponible
+    vmImage: 'windows-latest'
   steps:
     - checkout: self
       displayName: 'Checkout código'
-    
+
     - task: UseDotNet@2
       displayName: 'Instalar .NET SDK 9.0'
       inputs:
@@ -56,34 +62,64 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "Instalando Chromium para Playwright..."
-          
-          # Asegurar que playwright esté en el PATH
           $playwrightPath = "$env:USERPROFILE\.dotnet\tools"
           if (Test-Path $playwrightPath) {
               $env:PATH = "$playwrightPath;$env:PATH"
           }
-          
-          # Instalar Chromium
           playwright install chromium
-          
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "Error: Falló la instalación de Chromium"
-              exit 1
-          }
-          
-          Write-Host "✓ Playwright browsers instalados correctamente"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
         pwsh: true
       continueOnError: false
 
+    # P0 gate: Smoke API only (Auth, Expression, Safety, MissionFlow tagged tests)
     - task: DotNetCoreCLI@2
-      displayName: 'Ejecutar tests de API'
+      displayName: 'API Smoke (Category=Smoke)'
       inputs:
         command: 'test'
         projects: 'API.Tests/API.Tests.csproj'
-        arguments: |
+        arguments: >
           --configuration $(buildConfiguration)
           --no-build
+          --filter "Category=Smoke&FullyQualifiedName!~Learning"
+          --logger trx
+          --results-directory $(Agent.TempDirectory)/TestResults
+        publishTestResults: true
+        testRunTitle: 'AstroKid API Smoke'
+      env:
+        ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
+        ASTROKID_ENV: '$(ASTROKID_ENV)'
+      continueOnError: false
+
+    # COPPA gate: email-plus before child data, AI consent, no voice, no forged webhooks.
+    # QA backend needs COPPA_EMAIL_PLUS_EXPOSE_TOKEN=true (never production) or these end Inconclusive.
+    - task: DotNetCoreCLI@2
+      displayName: 'API COPPA (Category=Coppa)'
+      inputs:
+        command: 'test'
+        projects: 'API.Tests/API.Tests.csproj'
+        arguments: >
+          --configuration $(buildConfiguration)
+          --no-build
+          --filter "Category=Coppa"
+          --logger trx
+          --results-directory $(Agent.TempDirectory)/TestResults
+        publishTestResults: true
+        testRunTitle: 'AstroKid API COPPA'
+      env:
+        ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
+        ASTROKID_ENV: '$(ASTROKID_ENV)'
+      continueOnError: false
+
+    # Full API product suite — excludes NUnit Learning tutorials
+    - task: DotNetCoreCLI@2
+      displayName: 'API Tests (exclude Learning)'
+      inputs:
+        command: 'test'
+        projects: 'API.Tests/API.Tests.csproj'
+        arguments: >
+          --configuration $(buildConfiguration)
+          --no-build
+          --filter "FullyQualifiedName!~Learning"
           --collect:"XPlat Code Coverage"
           --logger trx
           --results-directory $(Agent.TempDirectory)/TestResults
@@ -92,14 +128,37 @@ jobs:
       env:
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
         ASTROKID_ENV: '$(ASTROKID_ENV)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
       continueOnError: false
 
     - task: DotNetCoreCLI@2
-      displayName: 'Ejecutar tests de UI'
+      displayName: 'UI Smoke (Category=Smoke)'
       inputs:
         command: 'test'
         projects: 'UI.Tests/UI.Tests.csproj'
-        arguments: |
+        arguments: >
+          --configuration $(buildConfiguration)
+          --no-build
+          --filter "Category=Smoke"
+          --logger trx
+          --results-directory $(Agent.TempDirectory)/TestResults
+        publishTestResults: true
+        testRunTitle: 'AstroKid UI Smoke'
+      env:
+        BASE_URL: '$(BASE_URL)'
+        AUTH_BASE_URL: '$(AUTH_BASE_URL)'
+        ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
+        ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+      # Soft until vault credentials are configured in every pipeline; smoke ignores when unset
+      continueOnError: true
+
+    - task: DotNetCoreCLI@2
+      displayName: 'UI Tests (full)'
+      inputs:
+        command: 'test'
+        projects: 'UI.Tests/UI.Tests.csproj'
+        arguments: >
           --configuration $(buildConfiguration)
           --no-build
           --collect:"XPlat Code Coverage"
@@ -109,6 +168,69 @@ jobs:
         testRunTitle: 'AstroKid UI Tests'
       env:
         BASE_URL: '$(BASE_URL)'
+        AUTH_BASE_URL: '$(AUTH_BASE_URL)'
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
-      continueOnError: true  # Los tests de UI pueden fallar si no hay backend disponible
+        ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+      continueOnError: true
 
+# Web app black-box suite (moved from astro-kid-web/apps/web/tests)
+- job: WebE2E
+  displayName: 'Web E2E (Playwright)'
+  condition: ne(variables['PLAYWRIGHT_BASE_URL'], '')
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+    - checkout: self
+
+    - task: NodeTool@0
+      displayName: 'Instalar Node 20'
+      inputs:
+        versionSpec: '20.x'
+
+    - script: npm ci || npm install
+      displayName: 'Instalar dependencias'
+      workingDirectory: Web.E2E
+
+    - script: npm run typecheck
+      displayName: 'Typecheck Web E2E'
+      workingDirectory: Web.E2E
+
+    - script: npx playwright install --with-deps chromium
+      displayName: 'Instalar Chromium'
+      workingDirectory: Web.E2E
+
+    # Release gate: smoke + COPPA web checks
+    - script: npx playwright test specs/smoke specs/privacy --project=chromium
+      displayName: 'Web Smoke + COPPA'
+      workingDirectory: Web.E2E
+      env:
+        JUNIT_FILE: 'reports/junit-smoke.xml'
+        CI: 'true'
+        PLAYWRIGHT_BASE_URL: '$(PLAYWRIGHT_BASE_URL)'
+        ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
+        VERCEL_AUTOMATION_BYPASS_SECRET: '$(VERCEL_AUTOMATION_BYPASS_SECRET)'
+        ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+
+    - script: npx playwright test specs/e2e specs/accessibility specs/performance
+      displayName: 'Web E2E + accesibilidad + performance'
+      workingDirectory: Web.E2E
+      env:
+        JUNIT_FILE: 'reports/junit-full.xml'
+        CI: 'true'
+        PLAYWRIGHT_BASE_URL: '$(PLAYWRIGHT_BASE_URL)'
+        ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
+        VERCEL_AUTOMATION_BYPASS_SECRET: '$(VERCEL_AUTOMATION_BYPASS_SECRET)'
+        ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
+        ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+      # Soft until the moved specs are stabilised against the deployed QA app
+      continueOnError: true
+
+    - task: PublishTestResults@2
+      displayName: 'Publicar resultados Web E2E'
+      condition: always()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: 'Web.E2E/reports/junit-*.xml'
+        testRunTitle: 'AstroKid Web E2E'

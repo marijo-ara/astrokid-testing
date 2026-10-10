@@ -8,7 +8,6 @@ Los tests están organizados por módulos de la API:
 
 - **Auth**: Tests para autenticación (`/auth/dev-login`)
 - **ChildTokens**: Tests para gestión de tokens de niños (`/child-tokens/*`)
-- **Children**: Tests para gestión de perfiles de niños (`/children/*`)
 - **Empathy**: Tests para el agente de empatía (`/empathy/*`)
 - **Resilience**: Tests para el agente de resiliencia (`/resilience/*`)
 - **FamilyProfiles**: Tests para perfiles de familia (`/family-profiles/*`)
@@ -18,6 +17,9 @@ Los tests están organizados por módulos de la API:
 - **DPE**: Tests para misiones diarias personalizadas (`/dpe/*`)
 - **ResilienceAssessments**: Tests para resultados de misión móvil (`/resilience-assessments/*`)
 - **MissionFlow**: Test E2E del happy path móvil vía API
+- **Expression**: Perfil expression + `familyMapAnswers` (mapas familiares)
+- **Safety**: `/safety-events` (historial, active-lock, acknowledge)
+- **Licenses**: contrato Free de una familia nueva (`/entitlements/me`, `journey-access`, arco Free). Las reglas de escuela/revocación viven en el backend.
 
 ## Configuración
 
@@ -38,6 +40,20 @@ $env:ASTROKID_BASE_URL = "https://astrokid-480117.uc.r.appspot.com"
 
 ```powershell
 $env:ASTROKID_ENV = "QA"  # Por defecto es "QA"
+
+# UI / password-login tests (nunca commits)
+$env:ASTROKID_UI_EMAIL = "qa-parent@example.com"
+$env:ASTROKID_UI_PASSWORD = "***"
+```
+
+### Smoke vs full (P0)
+
+```powershell
+# Gate rápido (Auth, Expression, Safety, MissionFlow tagged Smoke) — sin Learning
+dotnet test API.Tests --filter "Category=Smoke&FullyQualifiedName!~Learning"
+
+# Suite API producto (excluye tutoriales Learning)
+dotnet test API.Tests --filter "FullyQualifiedName!~Learning"
 ```
 
 ## Ejecutar Tests
@@ -67,9 +83,6 @@ dotnet test --filter "FullyQualifiedName~ChildTokensTests"
 
 # Solo tests de family profiles
 dotnet test --filter "FullyQualifiedName~FamilyProfilesTests"
-
-# Solo tests de children
-dotnet test --filter "FullyQualifiedName~ChildrenTests"
 
 # Solo tests de parent profiles
 dotnet test --filter "FullyQualifiedName~ParentProfilesTests"
@@ -132,17 +145,6 @@ dotnet test --filter "FullyQualifiedName~MissionFlowTests"
 - ✅ `GetAllFamilyProfiles_Should_Return_List`
 - ✅ `AddChildToFamily_Should_Create_New_Child`
 
-### Children Tests (`ChildrenTests.cs`)
-- ✅ `CreateChild_Should_Create_New_Child_With_Valid_Data`
-- ✅ `CreateChild_Should_Return_400_With_Invalid_Age`
-- ✅ `CreateChild_Should_Return_400_With_Wrong_Adjectives_Count`
-- ✅ `GetChildren_Should_Return_List`
-- ✅ `GetChild_Should_Return_Child_With_Valid_Id`
-- ✅ `GetChild_Should_Return_404_With_Invalid_Id`
-- ✅ `UpdateChild_Should_Update_Child_With_Valid_Data`
-- ✅ `DeleteChild_Should_Delete_Child_With_Valid_Id`
-- ✅ `DeleteChild_Should_Return_404_With_Invalid_Id`
-
 ### Parent Profiles Tests (`ParentProfilesTests.cs`)
 - ✅ `CreateParentProfile_Should_Create_New_Profile_With_Valid_Data`
 - ✅ `GetParentProfile_Should_Return_Profile_With_Valid_Id`
@@ -155,20 +157,23 @@ dotnet test --filter "FullyQualifiedName~MissionFlowTests"
 - ✅ `RemoveChildFromParent_Should_Remove_Child_From_Profile`
 
 ### Wallet Tests (`WalletTests.cs`)
-- ✅ `CreateActivity_Should_Create_Activity_And_Add_Reward`
-- ✅ `CreateActivity_Should_Return_400_With_ChildId_Mismatch`
-- ✅ `GetWallet_Should_Return_Wallet_After_Creating_Activity`
-- ✅ `GetWallet_Should_Return_404_With_Invalid_ChildId`
-- ✅ `GetWalletSummary_Should_Return_Summary`
-- ✅ `GetChildActivities_Should_Return_Activities_List`
-- ✅ `GetChildActivities_Should_Filter_By_Activity_Type`
-- ✅ `GetActivity_Should_Return_Specific_Activity`
-- ✅ `UpdateWallet_Should_Update_Counters`
-- ✅ `GetWalletStats_Should_Return_Statistics`
-- ✅ `GetAllWallets_Should_Return_List`
-- ✅ `DeleteWallet_Should_Delete_Wallet`
-- ✅ `CreateActivity_Should_Update_Coins_Counter`
-- ✅ `CreateActivity_Should_Update_Achievements_Counter`
+- ✅ `Wallet_Requires_Auth`
+- ✅ `Earned_Coins_Persist_And_Activity_Is_Readable`
+- ✅ `Summary_Activities_And_Stats_Are_Available`
+- ✅ `Spend_Debits_Coins`
+- ✅ `Child_Cannot_Set_Totals`
+- ✅ `Listing_All_Wallets_Is_Admin_Only`
+
+### Resilience Assessments Tests (`ResilienceAssessmentsTests.cs`)
+Usan una familia con consentimiento y la sesión del niño (`X-Child-Id` / `X-Child-Token`), como la app móvil.
+- ✅ `PostAssessment_Should_Store_Result_And_Return_Streak`
+- ✅ `GetChildState_Should_Report_Daily_Locked_After_Completion`
+- ✅ `PostAssessment_Should_Return_409_When_Daily_Mission_Already_Completed`
+- ✅ `PostAssessment_Should_Return_400_On_Child_Id_Mismatch`
+- ✅ `SessionDraft_Should_Persist_And_Clear`
+- ✅ `GetHistory_Should_Return_Empty_For_New_Child`
+- ✅ `Results_Require_Credentials`
+- ✅ `Child_Session_Cannot_Read_Another_Childs_Results`
 
 ### MCP Tests (`MCPTests.cs`)
 - ✅ `MCPListener_Should_Process_Emotion_Event` (Usa token de Firebase de prueba)

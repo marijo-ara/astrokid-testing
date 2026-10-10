@@ -1,5 +1,52 @@
 # Changelog - Mejoras en Tests
 
+## [2026-10] - Pirámide de pruebas: caja negra centralizada + COPPA
+
+### ✨ Agregado
+- **`Web.E2E/`** — suite Playwright TS movida desde `astro-kid-web/apps/web/tests` (config, page objects, specs smoke/e2e/accesibilidad/performance)
+- **`Web.E2E/specs/privacy/coppa-web.spec.ts`** — sin trackers antes del opt-in ni en rutas infantiles; política con IA apagada y cargo US$0.50; enlace email-plus falso rechazado
+- **`Mobile.E2E/`** — sandbox Appium movido desde `astro-kid-web/apps/mobile-tests` (sin `chromedriver.exe`)
+- **`API.Tests/Coppa/CoppaTests.cs`** — 12 casos COPPA-01..10 (email-plus, permiso de IA, cargo, webhook falso, revocación, insights locales, voz)
+- **`API.Tests/Health/HealthSmokeTests.cs`** — portado de `test_qa_endpoints.py`
+- **`UI.Tests/AuthOAuthFlowTests.cs`** — flujo OAuth en navegador portado de `astrokid-auth`
+- `BaseApiTest`: `QaEmail`, `LoginParentWithConsentAsync`, `CompleteEmailPlusAsync`, `CreateConsentedFamilyAsync`; `AstroKidClient.SendAsync` con headers
+- Pipeline: paso **API COPPA** bloqueante; job **Web E2E**; `AUTH_BASE_URL` para UI
+- Docs: `docs/TEST_STRATEGY.md`, `docs/COPPA_REQUIREMENTS.md` (mapa de datos + matriz de trazabilidad)
+
+### 🔧 Mejorado
+- **`WalletTests`** reescrito con adulto y sesión de niño reales (antes llamaba sin token y esperaba 200)
+- `MissionFlowTests`, `FamilyProfilesTests`: el adulto que crea la familia es el del token (antes 403 → omitidas en silencio)
+- Rutas `/family-profiles/` con barra final (evita el redirect 307); `parental_consent_acknowledged` en los payloads
+- Edad inválida de prueba: 14 (el rango del producto es 6–12)
+- DPE, Expression, Safety: login con consentimiento email-plus
+
+## [2026-03] - P0 SDET harden (secrets, Smoke, Expression, Safety)
+
+### ✨ Agregado
+- **`API.Tests/Expression/ExpressionTests.cs`** — bootstrap expression + `familyMapAnswers` persist + strip `transcript` (COPPA)
+- **`API.Tests/Safety/SafetyEventsTests.cs`** — historial vacío, active-lock unlocked, auth required, acknowledge 404
+- **`UI.Tests/TestCredentials.cs`** — `ASTROKID_UI_EMAIL` / `ASTROKID_UI_PASSWORD` (sin secrets en código)
+- Categorías **`[Category("Smoke")]`** en Auth, MissionFlow, Expression, Safety, FamilyMaps UI
+- Pipeline: job **API Smoke** fail-hard; full API **excluye Learning**; UI usa env secrets
+
+### 🔧 Mejorado
+- Fix compile `DashboardPage.TryAnswerFamilyMapPendingAsync` (`HasNotText` string, no Regex)
+- `TokenTests` ya no hardcodea password real
+- UI login (Parents / Dashboard / FamilyMaps) via `TestCredentials`
+
+### 📋 Manual
+- Ver `UI.Tests/MANUAL_SMOKE_FAMILY_MAPS.md` (+ env vars abajo)
+
+## [2026-03] - Family maps parent smoke
+
+### ✨ Agregado
+- **`UI.Tests/MANUAL_SMOKE_FAMILY_MAPS.md`** — checklist manual ~5 min (dashboard pending + mapas Empatía/Resiliencia)
+- **`UI.Tests/FamilyMapsSmokeTests.cs`** — 3 smokes Playwright (superficie, abrir Empatía, responder pending si existe)
+- Locators MVP en `DashboardPage` (`family-map-pending-prompt`, `family-map-survey-progress`, open Empathy map)
+
+### 🔧 Relacionado (astro-kid-web / shared)
+- Unit tests `familyMapProfile` alineados con status `completed` del día y imports ESM
+
 ## [2024] - Mejoras Completas
 
 ### ✅ Eliminado
