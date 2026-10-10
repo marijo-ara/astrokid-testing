@@ -10,7 +10,7 @@ que lo verifican en las dos capas de la pirámide:
 Este documento no es una certificación ni una opinión legal. Describe lo que el
 producto hace y cómo se comprueba.
 
-Versiones vigentes: política `2026-10-02`, aviso de IA `2026-10-03`.
+Versiones vigentes: política `2026-10-09`, aviso de IA `2026-10-03`.
 
 ## 1. Mapa de datos
 
@@ -21,7 +21,7 @@ Versiones vigentes: política `2026-10-02`, aviso de IA `2026-10-03`.
 | Edad | Backend | Solo rango de edad a OpenAI, con permiso de IA | Email-plus + permiso de IA (COPPA-04) |
 | Intereses | Backend | Solo un interés a OpenAI, con permiso de IA | Email-plus + permiso de IA |
 | Adjetivos, emoción elegida, progreso, puntaje de resiliencia, racha | Backend | No | Email-plus |
-| Texto libre en la misión | Clasificación de seguridad local; no se guarda completo | Sin nombre, a OpenAI, solo con permiso de IA y riesgo bajo/medio | Permiso de IA (COPPA-04, COPPA-13) |
+| Texto libre en la misión | Clasificación de seguridad local; no se guarda completo | No sale a OpenAI. El aviso y el relleno de la misión lo dejan dentro de AstroKid | Permiso de IA no lo envía (COPPA-04, COPPA-13) |
 | Voz del niño | No se procesa | No (el endpoint responde 403) | — (COPPA-10) |
 | Datos de tarjeta | Solo Stripe. AstroKid guarda id de pago, monto y reembolso | Stripe | Verificación del permiso de IA (COPPA-05) |
 | Medición / analítica | — | Ninguna en rutas infantiles; en páginas de adultos solo tras aceptar | Opt-in del adulto (COPPA-07, COPPA-08) |
@@ -46,7 +46,7 @@ Versiones vigentes: política `2026-10-02`, aviso de IA `2026-10-03`.
 | COPPA-14 | El adulto puede ver, exportar y borrar los datos del niño | Export y borrado en `family_profiles` | backend `test_child_data_export.py`, `test_family_remove_child.py` | `CoppaTests::COPPA_14_*` (exportar, borrar y que tras borrar la exportación responda 404; solo el adulto dueño) |
 | COPPA-15 | Sin contrato de datos con el proveedor, la IA no se activa | `AI_PROVIDER_DPA_ACCEPTED` | backend `test_ai_consent.py::test_provider_contract_flag_is_required` | Indirecto: `COPPA_04` lee `available` / `unavailable_reason` |
 | COPPA-16 | Datos del niño solo para su adulto; acciones sensibles solo del adulto o admin | `get_child_for_parent`, `require_child_access`, `require_admin` | backend `test_auth_and_ownership.py`, `test_parent_insights_auth.py`, `test_wallet_api.py` | `CoppaTests::COPPA_04_Ai_Consent_Requires_Auth_And_Ownership`, `::COPPA_16_Parent_Insights_Require_The_Childs_Own_Parent`; `API.Tests/Wallet/WalletTests.cs` |
-| COPPA-17 | Programa de seguridad escrito y política de retención escrita (regla enmendada 2025) | Proceso | — | No automatizable. Estado: **abierto** |
+| COPPA-17 | Programa de seguridad escrito y política de retención escrita (regla enmendada 2025) | `astro-kid-web/docs/PROGRAMA_SEGURIDAD.md` y la sección de retención del aviso `2026-10-09` | — | No automatizable. Programa escrito, con responsable nombrada. Faltan las garantías de encargados |
 
 ## 3. Cómo correr la verificación
 
@@ -72,4 +72,4 @@ Requisitos del entorno QA para que la capa caja negra no termine Inconclusive:
 
 ## 4. Brechas conocidas
 
-- **COPPA-17** depende de documentos internos (programa de seguridad, retención, DPA firmado con OpenAI).
+- **COPPA-17** tiene el programa en `astro-kid-web/docs/PROGRAMA_SEGURIDAD.md`, con responsable nombrada, y la retención en el aviso. Siguen abiertas las garantías de los encargados y el DPA de OpenAI.

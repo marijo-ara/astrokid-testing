@@ -70,6 +70,7 @@ namespace API.Tests.MissionFlow
         interests = new[] { "space" },
         avatarId = "avatar-001",
         parental_consent_acknowledged = true,
+        household_country = "CR",
         selectedAdjectives = new[]
         {
           new { id = "adj1", word = "curious", category = "personalidad", emoji = "🔍" },

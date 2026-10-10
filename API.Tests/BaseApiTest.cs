@@ -250,6 +250,7 @@ namespace API.Tests
                     interests = new[] { "space" },
                     avatarId = "nova",
                     parental_consent_acknowledged = true,
+                    household_country = "CR",
                     selectedAdjectives = new[]
                     {
                         new { id = "1", word = "curious", category = "personality", emoji = "🤔" },
@@ -324,6 +325,7 @@ namespace API.Tests
                     interests = new[] { "ciencia", "espacio", "aventuras" },
                     avatarId = "avatar-001",
                     parental_consent_acknowledged = true,
+                    household_country = "CR",
                     selectedAdjectives = new[]
                     {
                         new { id = "adj1", word = "valiente", category = "personalidad", emoji = "🦁" },

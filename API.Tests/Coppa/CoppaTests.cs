@@ -31,6 +31,7 @@ namespace API.Tests.Coppa
                 interests = new[] { "space" },
                 avatarId = "nova",
                 parental_consent_acknowledged = true,
+                household_country = "CR",
                 selectedAdjectives = new[]
                 {
                     new { id = "1", word = "curious", category = "personality", emoji = "🤔" },

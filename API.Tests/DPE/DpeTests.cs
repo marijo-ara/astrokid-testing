@@ -31,6 +31,7 @@ namespace API.Tests.DPE
           interests = new[] { "music", "space" },
           avatarId = "nova",
           parental_consent_acknowledged = true,
+          household_country = "CR",
           selectedAdjectives = new[]
           {
             new { id = "adj1", word = "curious", category = "personalidad", emoji = "🔍" },

@@ -45,8 +45,10 @@ test.describe('COPPA — web', () => {
     await expect(body).toContainText('La voz no se envía a ningún proveedor');
   });
 
-  test('COPPA-01: the email-plus confirmation page rejects a forged link @coppa', async ({ page }) => {
+  test('COPPA-01: the email-plus confirmation page shows the notice and rejects a forged link @coppa', async ({ page }) => {
     await page.goto('/consent/email-plus?token=forged-token', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/Existe una base de datos|A database exists/)).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: /Leí este aviso y confirmo|I read this notice and I confirm/ }).click();
     await expect(page.getByText(/Este enlace ya no sirve|This link no longer works/)).toBeVisible({ timeout: 15000 });
     await expect(page.locator('body')).not.toContainText(/Confirmación lista|Confirmation ready/);
   });

@@ -33,6 +33,7 @@ namespace API.Tests.FamilyProfiles
                     interests = new[] { "ciencia", "espacio" },
                     avatarId = "avatar-001",
                     parental_consent_acknowledged = true,
+                    household_country = "CR",
                     selectedAdjectives = new[]
                     {
                         new { id = "adj1", word = "valiente", category = "personalidad", emoji = "🦁" },
@@ -68,6 +69,7 @@ namespace API.Tests.FamilyProfiles
                     interests = new[] { "ciencia", "espacio" },
                     avatarId = "avatar-001",
                     parental_consent_acknowledged = true,
+                    household_country = "CR",
                     selectedAdjectives = new[]
                     {
                         new { id = "adj1", word = "valiente", category = "personalidad", emoji = "🦁" },
@@ -120,6 +122,7 @@ namespace API.Tests.FamilyProfiles
                     interests = new[] { "ciencia" },
                     avatarId = "avatar-001",
                     parental_consent_acknowledged = true,
+                    household_country = "CR",
                     selectedAdjectives = new[]
                     {
                         new { id = "adj1", word = "valiente", category = "personalidad", emoji = "🦁" },
@@ -158,6 +161,7 @@ namespace API.Tests.FamilyProfiles
                     interests = new[] { "ciencia" },
                     avatarId = "avatar-001",
                     parental_consent_acknowledged = true,
+                    household_country = "CR",
                     selectedAdjectives = new[]
                     {
                         new { id = "adj1", word = "valiente", category = "personalidad", emoji = "🦁" }
@@ -261,6 +265,7 @@ namespace API.Tests.FamilyProfiles
                 interests = new[] { "música", "arte" },
                 avatarId = "avatar-002",
                 parental_consent_acknowledged = true,
+                household_country = "CR",
                 selectedAdjectives = new[]
                 {
                     new { id = "adj1", word = "artístico", category = "personalidad", emoji = "🎨" },

@@ -9,7 +9,7 @@ tests (Jest) stay in `astro-kid-web`.
 | Folder | What it covers |
 | --- | --- |
 | `specs/smoke` | Landing and dashboard load; release gate |
-| `specs/e2e` | Parent login, dev login, parent → child adaptive flow, user journey |
+| `specs/e2e` | Parent login, dev login, parent → child adaptive flow, user journey, school license roles (parent `/access`, admin `/admin/licenses`, coordinator code handoff) |
 | `specs/privacy` | COPPA checks: no trackers before consent or on child routes, policy text, email-plus link |
 | `specs/accessibility` | WCAG checks (labels, focus, contrast) |
 | `specs/performance` | Core Web Vitals and load budgets |
