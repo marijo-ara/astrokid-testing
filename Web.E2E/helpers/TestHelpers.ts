@@ -173,7 +173,7 @@ export class TestHelpers {
   }
 
   async mockFirebaseAuth(userData?: { email: string; name: string; uid?: string }) {
-    const email = userData?.email || 'dev@astrokid.com';
+    const email = userData?.email || 'team.astrokid@gmail.com';
     const name = userData?.name || 'Usuario de Desarrollo';
     const uid = userData?.uid || 'dev-user-123';
     

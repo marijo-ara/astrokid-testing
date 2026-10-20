@@ -115,7 +115,7 @@ export class LoginPageEnv extends BasePage {
         localStorage.setItem('familyProfile', JSON.stringify({
           id: 'mock-family-123',
           parentName: 'Test Parent',
-          parentEmail: 'test@astrokid.com',
+          parentEmail: 'team.astrokid@gmail.com',
           children: [{
             id: 'mock-child-123',
             name: 'Test Child',

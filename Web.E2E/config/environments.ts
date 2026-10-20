@@ -27,7 +27,7 @@ export const environments: Record<string, EnvironmentConfig> = {
   dev: {
     name: 'Development Environment',
     baseURL: 'https://astro-kid-web-dev.vercel.app',
-    apiURL: 'https://api-dev.astrokid.com',
+    apiURL: 'https://api-dev.astrokid.io',
     loginBehavior: 'firebase',
     authProvider: 'both',
     mockData: false,
@@ -50,8 +50,8 @@ export const environments: Record<string, EnvironmentConfig> = {
   },
   staging: {
     name: 'Staging Environment',
-    baseURL: 'https://staging.astrokid.com',
-    apiURL: 'https://api-staging.astrokid.com',
+    baseURL: 'https://staging.astrokid.io',
+    apiURL: 'https://api-staging.astrokid.io',
     loginBehavior: 'firebase',
     authProvider: 'both',
     mockData: false,
@@ -63,7 +63,7 @@ export const environments: Record<string, EnvironmentConfig> = {
   prod: {
     name: 'Production Environment',
     baseURL: 'https://astrokid.io',
-    apiURL: 'https://api.astrokid.com',
+    apiURL: 'https://api.astrokid.io',
     loginBehavior: 'firebase',
     authProvider: 'both',
     mockData: false,
