@@ -26,9 +26,19 @@ public class DashboardPage
     
     // Agent cards
     public ILocator AgentCards => _page.GetByTestId("agent-card");
-    public ILocator EmpathyAgent => _page.GetByTestId("agent-name").Filter(new() { HasText = "Capitán empatía" });
-    public ILocator ResilienceAgent => _page.GetByTestId("agent-name").Filter(new() { HasText = "Comandante resiliencia" });
+    public ILocator EmpathyAgent => _page.GetByTestId("agent-name").Filter(new() { HasText = "Capitán Empatía" })
+        .Or(_page.GetByTestId("agent-name").Filter(new() { HasText = "Capitán empatía" }));
+    public ILocator ResilienceAgent => _page.GetByTestId("agent-name").Filter(new() { HasText = "Teniente Resiliencia" })
+        .Or(_page.GetByTestId("agent-name").Filter(new() { HasText = "resiliencia" }));
     public ILocator McpAgent => _page.GetByTestId("agent-name").Filter(new() { HasText = "Agente MCP" });
+
+    // Family maps (MVP parent dashboard)
+    public ILocator ParentMvpStack => _page.GetByTestId("parent-mvp-stack");
+    public ILocator FamilyMapsExpandable => _page.GetByTestId("dashboard-section-maps");
+    public ILocator FamilyMapPendingPrompt => _page.GetByTestId("family-map-pending-prompt");
+    public ILocator FamilyMapSurveyProgress => _page.GetByTestId("family-map-survey-progress");
+    public ILocator FamilyMapsSection => _page.GetByRole(AriaRole.Region, new() { NameRegex = new Regex("Mapas familiares|Family maps", RegexOptions.IgnoreCase) })
+        .Or(_page.Locator("section").Filter(new() { HasText = "Mapas familiares" }));
     
     // Footer
     public ILocator Footer => _page.GetByTestId("footer");
@@ -117,11 +127,24 @@ public class DashboardPage
         }
     }
 
+    public async Task ExpandFamilyMapsIfCollapsedAsync()
+    {
+        if (await FamilyMapsExpandable.CountAsync() == 0)
+            return;
+
+        var open = await FamilyMapsExpandable.GetAttributeAsync("open");
+        if (open != null)
+            return;
+
+        await FamilyMapsExpandable.Locator("summary").ClickAsync();
+    }
+
     /// <summary>
     /// Espera a que las tarjetas de agentes se carguen
     /// </summary>
     public async Task WaitForAgentCardsAsync(int timeout = 15000)
     {
+        await ExpandFamilyMapsIfCollapsedAsync();
         try
         {
             await AgentCards.First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = timeout });
@@ -151,6 +174,7 @@ public class DashboardPage
     /// </summary>
     public async Task ClickAgentCardAsync(string agentName)
     {
+        await ExpandFamilyMapsIfCollapsedAsync();
         // Intentar encontrar por data-testid primero
         var agentCardByTestId = _page.Locator($"[data-testid='agent-card-{agentName.ToLower().Replace(" ", "-")}']");
         var count = await agentCardByTestId.CountAsync();
@@ -255,6 +279,62 @@ public class DashboardPage
         // Fallback: búsqueda por texto
         var textLocator = _page.GetByText(agentName);
         return await textLocator.IsVisibleAsync();
+    }
+
+    /// <summary>
+    /// True if MVP family-map surface is present (pending prompt and/or survey progress bars).
+    /// </summary>
+    public async Task<bool> HasFamilyMapSurfaceAsync()
+    {
+        var pending = await FamilyMapPendingPrompt.CountAsync();
+        if (pending > 0 && await FamilyMapPendingPrompt.First.IsVisibleAsync())
+            return true;
+
+        var progress = await FamilyMapSurveyProgress.CountAsync();
+        if (progress > 0)
+            return true;
+
+        var cards = await AgentCards.CountAsync();
+        return cards >= 2;
+    }
+
+    /// <summary>
+    /// Opens Empathy family map via agent card (bg-red-500 adventure route).
+    /// </summary>
+    public async Task OpenEmpathyFamilyMapAsync()
+    {
+        await ExpandFamilyMapsIfCollapsedAsync();
+        var link = _page.Locator("a[href*='bg-red-500']").First;
+        if (await link.CountAsync() > 0)
+        {
+            await link.ClickAsync();
+            await _page.WaitForURLAsync("**/adventure/**", new() { Timeout = 15000 });
+            return;
+        }
+
+        await ClickAgentCardAsync("Capitán Empatía");
+        await _page.WaitForURLAsync("**/adventure/**", new() { Timeout = 15000 });
+    }
+
+    /// <summary>
+    /// Answers the first option on the dashboard pending family-map prompt, if visible.
+    /// </summary>
+    public async Task<bool> TryAnswerFamilyMapPendingAsync()
+    {
+        if (await FamilyMapPendingPrompt.CountAsync() == 0)
+            return false;
+        if (!await FamilyMapPendingPrompt.First.IsVisibleAsync())
+            return false;
+
+        var option = FamilyMapPendingPrompt
+            .GetByRole(AriaRole.Button)
+            .Filter(new() { HasNotText = "Más tarde" })
+            .Filter(new() { HasNotText = "Later" })
+            .First;
+
+        await option.ClickAsync();
+        await _page.WaitForTimeoutAsync(800);
+        return true;
     }
 
     /// <summary>

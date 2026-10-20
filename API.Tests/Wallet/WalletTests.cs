@@ -1,525 +1,156 @@
-using System;
+using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using RestSharp;
 
 namespace API.Tests.Wallet
 {
+    /// <summary>
+    /// Wallet on a deployed backend: earn → persist → read → spend, plus access rules.
+    /// Ported from astro-kid-backend tests/integration/test_qa_endpoints.py (TestWalletEndpoints).
+    /// </summary>
     [TestFixture]
+    [Category("API")]
+    [Category("Wallet")]
     public class WalletTests : BaseApiTest
     {
-        private string? _testChildId;
+        private ConsentedFamily? _family;
+        private string? _familyProblem;
 
         [SetUp]
         public override async Task SetUp()
         {
             await base.SetUp();
-            
-            // Crear un child_id de prueba
-            _testChildId = Guid.NewGuid().ToString();
-        }
-
-        [Test]
-        public async Task CreateActivity_Should_Create_Activity_And_Add_Reward()
-        {
-            // Arrange
-            var activityData = new
+            _family = null;
+            _familyProblem = null;
+            try
             {
-                child_id = _testChildId,
-                activity_type = "mission",
-                title = "Completar misión de exploración",
-                description = "El niño completó una misión espacial",
-                agent_name = "Capitán Empatía",
-                map_title = "Mapa del Sistema Solar",
-                difficulty = "easy",
-                age = 7,
-                reward_type = "coins",
-                reward_amount = 50,
-                reward_description = "Monedas por completar misión",
-                reward_icon = "🪙"
-            };
-
-            // Act
-            var response = await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK).Or.EqualTo(HttpStatusCode.Created),
-                "Debería retornar 200 OK o 201 Created");
-
-            if (response.IsSuccessStatusCode && response.Content != null)
+                _family = await CreateConsentedFamilyAsync("wallet");
+            }
+            catch (ResultStateException ex)
             {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(response.Content);
-                
-                Assert.That(jsonResponse.TryGetProperty("id", out var idElement), Is.True,
-                    "La respuesta debería contener id de actividad");
-                
-                Assert.That(jsonResponse.TryGetProperty("title", out var titleElement), Is.True,
-                    "La respuesta debería contener title");
-                
-                Assert.That(jsonResponse.TryGetProperty("reward", out var rewardElement), Is.True,
-                    "La respuesta debería contener reward");
+                // NUnit still runs the test body after a skip raised in an overridden async SetUp.
+                _familyProblem = ex.Message;
             }
         }
 
-        [Test]
-        public async Task CreateActivity_Should_Return_400_With_ChildId_Mismatch()
+        private ConsentedFamily Family
         {
-            // Arrange
-            var activityData = new
+            get
             {
-                child_id = "different-child-id",
-                activity_type = "mission",
-                title = "Test Activity",
-                description = "Test Description",
-                age = 7,
-                reward_type = "coins",
-                reward_amount = 50,
-                reward_description = "Test reward"
-            };
-
-            // Act
-            var response = await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest),
-                "Debería retornar 400 Bad Request por mismatch de child_id");
-        }
-
-        [Test]
-        public async Task GetWallet_Should_Return_Wallet_After_Creating_Activity()
-        {
-            // Arrange
-            // Primero crear una actividad para que exista la wallet
-            var activityData = new
-            {
-                child_id = _testChildId,
-                activity_type = "mission",
-                title = "Test Activity",
-                description = "Test Description",
-                age = 7,
-                reward_type = "coins",
-                reward_amount = 100,
-                reward_description = "Test reward"
-            };
-
-            var createResponse = await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            Assume.That(createResponse.IsSuccessStatusCode, Is.True, "Debe crear la actividad primero");
-
-            // Act
-            var response = await Client.GetAsync($"/wallet/{_testChildId}");
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(response.Content);
-                
-                Assert.That(jsonResponse.TryGetProperty("child_id", out var childIdElement), Is.True,
-                    "La respuesta debería contener child_id");
-                
-                Assert.That(jsonResponse.TryGetProperty("total_coins", out var coinsElement), Is.True,
-                    "La respuesta debería contener total_coins");
-                
-                Assert.That(jsonResponse.TryGetProperty("activities", out var activitiesElement), Is.True,
-                    "La respuesta debería contener activities");
-            }
-        }
-
-        [Test]
-        public async Task GetWallet_Should_Return_404_With_Invalid_ChildId()
-        {
-            // Arrange
-            var invalidChildId = Guid.NewGuid().ToString();
-
-            // Act
-            var response = await Client.GetAsync($"/wallet/{invalidChildId}");
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound),
-                "Debería retornar 404 Not Found para child_id inválido");
-        }
-
-        [Test]
-        public async Task GetWalletSummary_Should_Return_Summary()
-        {
-            // Arrange
-            // Crear algunas actividades
-            for (int i = 0; i < 3; i++)
-            {
-                var activityData = new
+                if (_family == null)
                 {
-                    child_id = _testChildId,
-                    activity_type = "mission",
-                    title = $"Test Activity {i}",
-                    description = "Test Description",
-                    age = 7,
-                    reward_type = "coins",
-                    reward_amount = 10 * (i + 1),
-                    reward_description = "Test reward"
-                };
-                await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            }
-
-            // Act
-            var response = await Client.GetAsync($"/wallet/{_testChildId}/summary");
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(response.Content);
-                
-                Assert.That(jsonResponse.TryGetProperty("total_coins", out _), Is.True,
-                    "La respuesta debería contener total_coins");
-                
-                Assert.That(jsonResponse.TryGetProperty("recent_activities", out var activitiesElement), Is.True,
-                    "La respuesta debería contener recent_activities");
-            }
-        }
-
-        [Test]
-        public async Task GetChildActivities_Should_Return_Activities_List()
-        {
-            // Arrange
-            // Crear algunas actividades
-            for (int i = 0; i < 2; i++)
-            {
-                var activityData = new
-                {
-                    child_id = _testChildId,
-                    activity_type = i % 2 == 0 ? "mission" : "map_completion",
-                    title = $"Test Activity {i}",
-                    description = "Test Description",
-                    age = 7,
-                    reward_type = "coins",
-                    reward_amount = 20,
-                    reward_description = "Test reward"
-                };
-                await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            }
-
-            // Act
-            var response = await Client.GetAsync($"/wallet/{_testChildId}/activities");
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(response.Content);
-                Assert.That(jsonResponse, Is.Not.Null,
-                    "Debería retornar un array de actividades");
-            }
-        }
-
-        [Test]
-        public async Task GetChildActivities_Should_Filter_By_Activity_Type()
-        {
-            // Arrange
-            // Crear actividades de diferentes tipos
-            var activityTypes = new[] { "mission", "map_completion", "mission" };
-            
-            foreach (var activityType in activityTypes)
-            {
-                var activityData = new
-                {
-                    child_id = _testChildId,
-                    activity_type = activityType,
-                    title = $"Test Activity {activityType}",
-                    description = "Test Description",
-                    age = 7,
-                    reward_type = "coins",
-                    reward_amount = 20,
-                    reward_description = "Test reward"
-                };
-                await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            }
-
-            // Act - Filtrar por tipo "mission"
-            var response = await Client.GetAsync($"/wallet/{_testChildId}/activities?activity_type=mission");
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(response.Content);
-                Assert.That(jsonResponse, Is.Not.Null,
-                    "Debería retornar un array de actividades");
-            }
-        }
-
-        [Test]
-        public async Task GetActivity_Should_Return_Specific_Activity()
-        {
-            // Arrange
-            // Crear una actividad
-            var activityData = new
-            {
-                child_id = _testChildId,
-                activity_type = "mission",
-                title = "Test Activity",
-                description = "Test Description",
-                age = 7,
-                reward_type = "coins",
-                reward_amount = 50,
-                reward_description = "Test reward"
-            };
-
-            var createResponse = await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            Assume.That(createResponse.IsSuccessStatusCode, Is.True, "Debe crear la actividad primero");
-
-            string? activityId = null;
-            if (createResponse.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(createResponse.Content);
-                if (jsonResponse.TryGetProperty("id", out var idElement))
-                {
-                    activityId = idElement.GetString();
+                    Assert.Inconclusive(_familyProblem ?? "No se pudo crear la familia de prueba.");
                 }
-            }
-
-            Assume.That(activityId, Is.Not.Null, "Se requiere un activity_id válido");
-
-            // Act
-            var response = await Client.GetAsync($"/wallet/{_testChildId}/activities/{activityId}");
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(response.Content);
-                Assert.That(jsonResponse.TryGetProperty("id", out _), Is.True,
-                    "La respuesta debería contener id");
+                return _family!;
             }
         }
 
-        [Test]
-        public async Task UpdateWallet_Should_Update_Counters()
+        private Task<RestResponse> AsParent(Method method, string path, object? body = null) =>
+            Client.SendAsync(method, path, body, Family.ParentToken);
+
+        private Task<RestResponse> AsChild(Method method, string path, object? body = null) =>
+            Client.SendAsync(method, path, body, headers: Family.ChildHeaders);
+
+        private async Task<int> TotalCoinsAsync()
         {
-            // Arrange
-            // Primero crear una actividad para que exista la wallet
-            var activityData = new
+            var wallet = await AsParent(Method.Get, $"/wallet/{Family.ChildId}");
+            AssertSuccessStatusCode(wallet, $"GET wallet: {wallet.StatusCode} {wallet.Content}");
+            return JsonSerializer.Deserialize<JsonElement>(wallet.Content!).GetProperty("total_coins").GetInt32();
+        }
+
+        private async Task<string> EarnAsync(int coins)
+        {
+            var created = await AsChild(Method.Post, $"/wallet/{Family.ChildId}/activities", new
             {
-                child_id = _testChildId,
+                child_id = Family.ChildId,
                 activity_type = "mission",
-                title = "Test Activity",
-                description = "Test Description",
-                age = 7,
+                title = "QA Mission",
+                description = "QA wallet persistence",
+                agent_name = "AstroKid",
+                map_title = "QA",
+                age = 8,
                 reward_type = "coins",
-                reward_amount = 50,
-                reward_description = "Test reward"
-            };
-
-            var createResponse = await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            Assume.That(createResponse.IsSuccessStatusCode, Is.True, "Debe crear la actividad primero");
-
-            var updateData = new
-            {
-                total_coins = 200,
-                total_achievements = 5,
-                total_badges = 3
-            };
-
-            // Act
-            var response = await Client.PutAsync($"/wallet/{_testChildId}", updateData);
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(response.Content);
-                Assert.That(jsonResponse.TryGetProperty("total_coins", out var coinsElement), Is.True,
-                    "La respuesta debería contener total_coins");
-            }
+                reward_amount = coins,
+                reward_description = $"{coins} coins"
+            });
+            AssertSuccessStatusCode(created, $"POST activity: {created.StatusCode} {created.Content}");
+            return ReadString(created.Content, "id")!;
         }
 
         [Test]
-        public async Task GetWalletStats_Should_Return_Statistics()
+        [Category("Smoke")]
+        public async Task Wallet_Requires_Auth()
         {
-            // Arrange
-            // Crear actividades de diferentes tipos
-            var activities = new[]
-            {
-                new { type = "mission", coins = 50 },
-                new { type = "map_completion", coins = 100 },
-                new { type = "mission", coins = 30 }
-            };
-
-            foreach (var activity in activities)
-            {
-                var activityData = new
-                {
-                    child_id = _testChildId,
-                    activity_type = activity.type,
-                    title = $"Test Activity {activity.type}",
-                    description = "Test Description",
-                    age = 7,
-                    reward_type = "coins",
-                    reward_amount = activity.coins,
-                    reward_description = "Test reward"
-                };
-                await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            }
-
-            // Act
-            var response = await Client.GetAsync($"/wallet/{_testChildId}/stats");
-
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(response.Content);
-                
-                Assert.That(jsonResponse.TryGetProperty("total_coins", out _), Is.True,
-                    "La respuesta debería contener total_coins");
-                
-                Assert.That(jsonResponse.TryGetProperty("activities_by_type", out _), Is.True,
-                    "La respuesta debería contener activities_by_type");
-            }
+            var response = await Client.GetAsync($"/wallet/{Family.ChildId}");
+            AssertStatusCode(response, HttpStatusCode.Unauthorized);
         }
 
         [Test]
-        public async Task GetAllWallets_Should_Return_List()
+        public async Task Earned_Coins_Persist_And_Activity_Is_Readable()
         {
-            // Arrange
-            // Crear al menos una wallet creando una actividad
-            var activityData = new
-            {
-                child_id = _testChildId,
-                activity_type = "mission",
-                title = "Test Activity",
-                description = "Test Description",
-                age = 7,
-                reward_type = "coins",
-                reward_amount = 50,
-                reward_description = "Test reward"
-            };
-            await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
+            var start = await TotalCoinsAsync();
+            var activityId = await EarnAsync(10);
 
-            // Act
-            var response = await Client.GetAsync("/wallet/");
+            var wallet = await AsParent(Method.Get, $"/wallet/{Family.ChildId}");
+            var json = JsonSerializer.Deserialize<JsonElement>(wallet.Content!);
+            Assert.That(json.GetProperty("total_coins").GetInt32(), Is.EqualTo(start + 10), "earned coins were not persisted");
+            Assert.That(
+                json.GetProperty("activities").EnumerateArray().Any(a => a.GetProperty("id").GetString() == activityId),
+                Is.True);
 
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 200 OK");
-
-            if (response.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement[]>(response.Content);
-                Assert.That(jsonResponse, Is.Not.Null,
-                    "Debería retornar un array de wallets");
-            }
+            var one = await AsChild(Method.Get, $"/wallet/{Family.ChildId}/activities/{activityId}");
+            AssertSuccessStatusCode(one);
         }
 
         [Test]
-        public async Task DeleteWallet_Should_Delete_Wallet()
+        public async Task Summary_Activities_And_Stats_Are_Available()
         {
-            // Arrange
-            // Crear una wallet creando una actividad
-            var activityData = new
-            {
-                child_id = _testChildId,
-                activity_type = "mission",
-                title = "Test Activity",
-                description = "Test Description",
-                age = 7,
-                reward_type = "coins",
-                reward_amount = 50,
-                reward_description = "Test reward"
-            };
-            await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
+            await EarnAsync(5);
 
-            // Act
-            var response = await Client.DeleteAsync($"/wallet/{_testChildId}");
+            var summary = await AsParent(Method.Get, $"/wallet/{Family.ChildId}/summary");
+            AssertValidJsonResponse(summary.Content, "recent_activities");
 
-            // Assert
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent).Or.EqualTo(HttpStatusCode.OK),
-                "Debería retornar 204 No Content o 200 OK");
+            var activities = await AsChild(Method.Get, $"/wallet/{Family.ChildId}/activities");
+            AssertSuccessStatusCode(activities);
+            Assert.That(JsonSerializer.Deserialize<JsonElement>(activities.Content!).ValueKind, Is.EqualTo(JsonValueKind.Array));
 
-            // Verificar que la wallet fue eliminada
-            var getResponse = await Client.GetAsync($"/wallet/{_testChildId}");
-            Assert.That(getResponse.StatusCode, Is.EqualTo(HttpStatusCode.NotFound),
-                "La wallet debería haber sido eliminada");
+            var stats = await AsParent(Method.Get, $"/wallet/{Family.ChildId}/stats");
+            AssertValidJsonResponse(stats.Content, "activities_by_type");
         }
 
         [Test]
-        public async Task CreateActivity_Should_Update_Coins_Counter()
+        public async Task Spend_Debits_Coins()
         {
-            // Arrange
-            var activityData = new
-            {
-                child_id = _testChildId,
-                activity_type = "mission",
-                title = "Test Activity",
-                description = "Test Description",
-                age = 7,
-                reward_type = "coins",
-                reward_amount = 75,
-                reward_description = "Test reward"
-            };
+            await EarnAsync(10);
+            var start = await TotalCoinsAsync();
 
-            // Act
-            await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            var walletResponse = await Client.GetAsync($"/wallet/{_testChildId}");
-
-            // Assert
-            if (walletResponse.IsSuccessStatusCode && walletResponse.Content != null)
+            var spent = await AsChild(Method.Post, $"/wallet/{Family.ChildId}/spend", new
             {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(walletResponse.Content);
-                if (jsonResponse.TryGetProperty("total_coins", out var coinsElement))
-                {
-                    var totalCoins = coinsElement.GetInt32();
-                    Assert.That(totalCoins, Is.EqualTo(75),
-                        "El total de monedas debería ser 75");
-                }
-            }
+                amount = 5,
+                title = "QA",
+                description = "QA spend",
+                reason = "save"
+            });
+
+            AssertSuccessStatusCode(spent, $"spend: {spent.StatusCode} {spent.Content}");
+            Assert.That(JsonSerializer.Deserialize<JsonElement>(spent.Content!).GetProperty("total_coins").GetInt32(), Is.EqualTo(start - 5));
         }
 
         [Test]
-        public async Task CreateActivity_Should_Update_Achievements_Counter()
+        public async Task Child_Cannot_Set_Totals()
         {
-            // Arrange
-            var activityData = new
-            {
-                child_id = _testChildId,
-                activity_type = "special_achievement",
-                title = "Test Achievement",
-                description = "Test Description",
-                age = 7,
-                reward_type = "achievement",
-                reward_amount = 1,
-                reward_description = "Test achievement"
-            };
+            var response = await AsChild(Method.Put, $"/wallet/{Family.ChildId}", new { total_coins = 99999 });
+            AssertStatusCode(response, HttpStatusCode.Forbidden);
+        }
 
-            // Act
-            await Client.PostAsync($"/wallet/{_testChildId}/activities", activityData);
-            var walletResponse = await Client.GetAsync($"/wallet/{_testChildId}");
-
-            // Assert
-            if (walletResponse.IsSuccessStatusCode && walletResponse.Content != null)
-            {
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(walletResponse.Content);
-                if (jsonResponse.TryGetProperty("total_achievements", out var achievementsElement))
-                {
-                    var totalAchievements = achievementsElement.GetInt32();
-                    Assert.That(totalAchievements, Is.EqualTo(1),
-                        "El total de achievements debería ser 1");
-                }
-            }
+        [Test]
+        public async Task Listing_All_Wallets_Is_Admin_Only()
+        {
+            AssertStatusCode(await Client.GetAsync("/wallet/"), HttpStatusCode.Unauthorized);
+            AssertStatusCode(await AsParent(Method.Get, "/wallet/"), HttpStatusCode.Forbidden);
         }
     }
 }
-

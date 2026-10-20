@@ -1,0 +1,25 @@
+{
+  "name": "astrokid-web-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Black-box Playwright suite for the AstroKid web app",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test specs/smoke",
+    "test:e2e": "playwright test specs/e2e",
+    "test:privacy": "playwright test specs/privacy",
+    "test:accessibility": "playwright test specs/accessibility",
+    "test:performance": "playwright test specs/performance",
+    "test:all-browsers": "cross-env PLAYWRIGHT_BROWSERS=all playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install --with-deps chromium",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.6.0"
+  }
+}

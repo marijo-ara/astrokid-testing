@@ -22,7 +22,7 @@ namespace API.Tests.ChildTokens
                 try
                 {
                     var familyProfile = CreateTestFamilyProfile();
-                    var createResponse = await Client.PostAsync("/family-profiles", familyProfile, ParentToken);
+                    var createResponse = await Client.PostAsync("/family-profiles/", familyProfile, ParentToken);
                     
                     if (createResponse.IsSuccessStatusCode && createResponse.Content != null)
                     {
@@ -125,6 +125,12 @@ namespace API.Tests.ChildTokens
         {
             // Arrange
             Assume.That(_testChildId, Is.Not.Null, "Se requiere un child_id de prueba");
+            if (_testToken == null)
+            {
+                var generated = await Client.PostAsync("/child-tokens/generate", CreateChildTokenRequest(_testChildId!), ParentToken!);
+                AssertSuccessStatusCode(generated, $"child-tokens/generate: {generated.StatusCode} {generated.Content}");
+                _testToken = ReadString(generated.Content, "token");
+            }
             Assume.That(_testToken, Is.Not.Null, "Se requiere un token de prueba");
 
             var validationRequest = new

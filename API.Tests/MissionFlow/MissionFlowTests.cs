@@ -11,56 +11,26 @@ namespace API.Tests.MissionFlow
   /// Child token / QR login is covered in ChildTokensTests.
   /// </summary>
   [TestFixture]
+  [Category("API")]
+  [Category("MissionFlow")]
   public class MissionFlowTests : BaseApiTest
   {
-    private static string NewChildId() => $"mission-flow-{Guid.NewGuid():N}";
-
     [Test]
+    [Category("Smoke")]
     public async Task Daily_Mission_API_Flow_Should_Work_For_Child()
     {
-      await RunDailyMissionFlowAsync(NewChildId());
+      var (token, familyJson) = await CreateFamilyAsync("mission-flow-smoke", "Smoke Child");
+      var childId = familyJson.GetProperty("children")[0].GetProperty("id").GetString()!;
+
+      await RunDailyMissionFlowAsync(childId, token);
     }
 
     [Test]
     public async Task Full_Mobile_Login_Plus_Mission_Should_Work_When_Parent_Auth_Available()
     {
-      Assume.That(ParentToken, Is.Not.Null, "Requires /auth/dev-login on the target backend");
-
-      var uniqueEmail = $"mission-flow-{Guid.NewGuid():N}@example.com";
-      var familyProfile = new
-      {
-        parent = new
-        {
-          parent_name = TestParentName,
-          parent_email = uniqueEmail,
-        },
-        child = new
-        {
-          name = "Mission Flow Child",
-          birthdate = DateTime.UtcNow.AddYears(-8).ToString("yyyy-MM-dd"),
-          age = 8,
-          interests = new[] { "space" },
-          avatarId = "avatar-001",
-          selectedAdjectives = new[]
-          {
-            new { id = "adj1", word = "curious", category = "personalidad", emoji = "🔍" },
-            new { id = "adj2", word = "brave", category = "personalidad", emoji = "🦁" },
-            new { id = "adj3", word = "kind", category = "personalidad", emoji = "💝" },
-          },
-        },
-      };
-
-      var familyResponse = await Client.PostAsync("/family-profiles", familyProfile, ParentToken!);
-      Assume.That(
-        familyResponse.IsSuccessStatusCode,
-        Is.True,
-        $"Family profile requires DB-backed parent auth. Status: {familyResponse.StatusCode}, body: {familyResponse.Content}"
-      );
-
-      var familyJson = JsonSerializer.Deserialize<JsonElement>(familyResponse.Content!);
+      var (token, familyJson) = await CreateFamilyAsync("mission-flow", "Mission Flow Child");
       var childId = familyJson.GetProperty("children")[0].GetProperty("id").GetString()!;
       var childToken = familyJson.GetProperty("children")[0].GetProperty("token").GetString();
-      RegisterResourceForCleanup(ResourceType.FamilyProfile, familyJson.GetProperty("id").GetString()!);
 
       var validateResponse = await Client.PostAsync(
         "/child-tokens/validate",
@@ -72,10 +42,64 @@ namespace API.Tests.MissionFlow
         Is.True
       );
 
-      await RunDailyMissionFlowAsync(childId);
+      await RunDailyMissionFlowAsync(childId, token);
     }
 
-    private async Task RunDailyMissionFlowAsync(string childId)
+    private async Task<(string Token, JsonElement Family)> CreateFamilyAsync(string label, string childName)
+    {
+      var email = QaEmail(label);
+      var token = await LoginParentWithConsentAsync(email, TestParentName);
+      var familyResponse = await Client.PostAsync("/family-profiles/", FamilyProfile(email, childName), token);
+      AssumeBackendAvailable(familyResponse);
+      AssertSuccessStatusCode(familyResponse, $"family-profiles: {familyResponse.StatusCode} {familyResponse.Content}");
+      return (token, JsonSerializer.Deserialize<JsonElement>(familyResponse.Content!));
+    }
+
+    private object FamilyProfile(string email, string childName) => new
+    {
+      parent = new
+      {
+        parent_name = TestParentName,
+        parent_email = email,
+      },
+      child = new
+      {
+        name = childName,
+        birthdate = DateTime.UtcNow.AddYears(-8).ToString("yyyy-MM-dd"),
+        age = 8,
+        interests = new[] { "space" },
+        avatarId = "avatar-001",
+        parental_consent_acknowledged = true,
+        household_country = "CR",
+        selectedAdjectives = new[]
+        {
+          new { id = "adj1", word = "curious", category = "personalidad", emoji = "🔍" },
+          new { id = "adj2", word = "brave", category = "personalidad", emoji = "🦁" },
+          new { id = "adj3", word = "kind", category = "personalidad", emoji = "💝" },
+        },
+      },
+    };
+
+    private static void AssertCompiledFourD(JsonElement mission)
+    {
+      var compiler = mission.GetProperty("compiler");
+      Assert.That(compiler.GetProperty("pipeline").GetString(), Is.EqualTo("mission_compiler"));
+      Assert.That(
+        compiler.GetProperty("templateKind").GetString(),
+        Is.EqualTo("daily").Or.EqualTo("free_arc")
+      );
+      var arch = mission.GetProperty("contract").GetProperty("pedagogicalArchitecture");
+      Assert.That(arch.GetProperty("what").GetProperty("framework").GetString(), Is.EqualTo("casel"));
+      Assert.That(arch.GetProperty("how").GetProperty("framework").GetString(), Is.EqualTo("growth_mindset"));
+      Assert.That(arch.GetProperty("why").GetProperty("framework").GetString(), Is.EqualTo("sdt"));
+      Assert.That(arch.GetProperty("think").GetProperty("framework").GetString(), Is.EqualTo("metacognition"));
+      var arc = mission.GetProperty("experienceArc");
+      Assert.That(arc.GetArrayLength(), Is.EqualTo(7));
+      Assert.That(arc[0].GetString(), Is.EqualTo("situation"));
+      Assert.That(arc[6].GetString(), Is.EqualTo("reflection"));
+    }
+
+    private async Task RunDailyMissionFlowAsync(string childId, string token)
     {
       var dpeBody = new
       {
@@ -90,11 +114,12 @@ namespace API.Tests.MissionFlow
         focusCompetency = "selfManagement",
         recommendedDpeTheme = "emotional_regulation",
       };
-      var dpeResponse = await Client.PostAsync($"/dpe/daily-mission/{childId}/generate", dpeBody);
+      var dpeResponse = await Client.PostAsync($"/dpe/daily-mission/{childId}/generate", dpeBody, token);
       AssertSuccessStatusCode(dpeResponse);
       var mission = JsonSerializer.Deserialize<JsonElement>(dpeResponse.Content!);
       var missionId = mission.GetProperty("missionId").GetString();
       Assert.That(missionId, Is.Not.Null.And.Not.Empty);
+      AssertCompiledFourD(mission);
 
       var assessmentBody = new
       {
@@ -113,7 +138,7 @@ namespace API.Tests.MissionFlow
         agent = mission.GetProperty("agent").GetString(),
         reward_coins = mission.GetProperty("rewardPlan").GetProperty("coins").GetInt32(),
       };
-      var postResponse = await Client.PostAsync($"/resilience-assessments/{childId}", assessmentBody);
+      var postResponse = await Client.PostAsync($"/resilience-assessments/{childId}", assessmentBody, token);
       AssertSuccessStatusCode(postResponse);
 
       var mcpBody = new
@@ -127,7 +152,7 @@ namespace API.Tests.MissionFlow
       var mcpResponse = await Client.PostAsync("/mcp/evaluate", mcpBody);
       AssertSuccessStatusCode(mcpResponse);
 
-      var stateResponse = await Client.GetAsync($"/resilience-assessments/{childId}/state");
+      var stateResponse = await Client.GetAsync($"/resilience-assessments/{childId}/state", token);
       AssertSuccessStatusCode(stateResponse);
       var state = JsonSerializer.Deserialize<JsonElement>(stateResponse.Content!);
       Assert.That(JsonTestHelpers.GetProperty(state, "dailyLocked").GetBoolean(), Is.True);

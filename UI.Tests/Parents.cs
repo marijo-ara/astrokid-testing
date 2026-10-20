@@ -14,6 +14,8 @@ public class ParentsTests : UiTestBase
     {
         try
         {
+            TestCredentials.AssumeConfigured();
+
             // Arrange
             var loginPage = new LoginPage(_page);
             await loginPage.GoToAsync();
@@ -29,7 +31,7 @@ public class ParentsTests : UiTestBase
             Console.WriteLine("Screenshot saved: screenshot-before-login.png");
             
             // Act
-            await loginPage.LoginAsync("marijodev@gmail.com", "Password123!");
+            await loginPage.LoginAsync(TestCredentials.Email, TestCredentials.Password);
             
             // Wait for navigation after login
             await _page.WaitForURLAsync("**/dashboard**", new() { Timeout = 10000 });

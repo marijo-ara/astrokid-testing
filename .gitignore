@@ -5,3 +5,12 @@ TestResults/
 *.user
 *.suo
 *.cache
+
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+Mobile.E2E/target/
+Mobile.E2E/chromedriver*/
+.env
+Web.E2E/reports/

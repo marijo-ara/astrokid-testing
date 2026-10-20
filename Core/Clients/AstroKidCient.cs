@@ -1,4 +1,5 @@
 using RestSharp;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Core.Config;
@@ -72,6 +73,35 @@ namespace Core.Clients
             if (!string.IsNullOrEmpty(token))
             {
                 request.AddHeader("Authorization", $"Bearer {token}");
+            }
+
+            return await _client.ExecuteAsync(request);
+        }
+
+        public async Task<RestResponse> SendAsync(
+            Method method,
+            string endpoint,
+            object? body = null,
+            string token = "",
+            IDictionary<string, string>? headers = null)
+        {
+            var request = new RestRequest(endpoint, method);
+            if (body != null)
+            {
+                request.AddStringBody(JsonSerializer.Serialize(body), ContentType.Json);
+            }
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.AddHeader("Authorization", $"Bearer {token}");
+            }
+
+            if (headers != null)
+            {
+                foreach (var (name, value) in headers)
+                {
+                    request.AddHeader(name, value);
+                }
             }
 
             return await _client.ExecuteAsync(request);
