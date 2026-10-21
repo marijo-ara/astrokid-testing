@@ -197,32 +197,25 @@ test.describe('school license roles', () => {
         body: JSON.stringify({ children: [] }),
       })
     })
-    await page.route('**/admin/activate-school', async (route) => {
+    await page.route('**/admin/schools/send-agreement', async (route) => {
       const body = route.request().postDataJSON() as {
         school_name?: string
         contact_email?: string
-        payment_waived?: boolean
       }
       expect(body.school_name).toBe('Colegio Norte')
       expect(body.contact_email).toBe('coord@colegio.edu')
-      expect(body.payment_waived).toBe(true)
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          organization: schoolOrg,
-          license: schoolOrg.licenses[0],
-          invite: {
-            id: 'inv-1',
-            code: 'NORTE1',
-            organization_id: 'org-1',
-            license_id: 'lic-1',
-            max_redemptions: 110,
-            redeemed_count: 0,
-            status: 'active',
-            expires_at: null,
+          organization: { ...schoolOrg, contact_email: 'coord@colegio.edu', status: 'draft' },
+          license: {
+            ...schoolOrg.licenses[0],
+            status: 'draft',
+            payment_cleared: false,
+            agreement_status: 'sent',
           },
-          coordinator_email: { ok: true },
+          agreement_email: { ok: true },
         }),
       })
     })
@@ -235,27 +228,16 @@ test.describe('school license roles', () => {
     })
 
     await page.goto('/admin/licenses', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: 'Activar licencia escolar' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Activar un colegio' })).toBeVisible()
     await expect(page.getByText('El contacto del colegio no entra aquí.')).toBeVisible()
-    await expect(page.getByText('Recibe el acuerdo para firmar, o el código si activas el pago aquí. No se convierte en admin.')).toBeVisible()
+    await expect(page.getByText('Recibe el acuerdo para firmar. No se convierte en admin.')).toBeVisible()
+    await expect(page.getByText('Validación de pago')).toHaveCount(0)
 
-    await page.getByLabel('Nombre del colegio').fill('Colegio Norte')
-    await page.getByLabel('Correo del coordinador').fill('coord@colegio.edu')
-    await page.getByRole('checkbox', { name: 'Eximir pago', exact: true }).check()
-    await page.getByRole('button', { name: 'Activar licencia (pago ya en mano)' }).click()
+    await page.getByLabel('Colegio').fill('Colegio Norte')
+    await page.getByLabel('Correo').fill('coord@colegio.edu')
+    await page.getByRole('button', { name: 'Enviar acuerdo para firma y pago' }).click()
 
-    const result = page.getByTestId('admin-invite-result')
-    await expect(result).toContainText('NORTE1')
-    await expect(result).toContainText('Correo enviado a coord@colegio.edu')
-
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-    await page.getByRole('button', { name: 'Copiar instrucciones para el coordinador' }).click()
-    const note = await page.evaluate(() => navigator.clipboard.readText())
-    expect(note).toContain('Código: NORTE1')
-    expect(note).toContain('coord@colegio.edu')
-    expect(note).toContain('/access')
-    expect(note).toContain('/escuela')
-    expect(note).toContain('No administra la plataforma')
+    await expect(page.getByText(/Acuerdo en PDF enviado a coord@colegio.edu/)).toBeVisible()
   })
 
   test('admin roster lists the student by given name and keeps the parent email masked', async ({ page }) => {
