@@ -4,8 +4,9 @@ import { test, expect } from '../../fixtures/base'
  * School license views, black-box:
  * - Parent uses /access to redeem one shared code.
  * - AstroKid admin uses /admin/licenses to register the school.
- * - The school contact logs in and opens /escuela: seat and mission counts, no
- *   family emails. A coordinator account is not an admin.
+ * - The school contact logs in and opens /escuela: seat and mission counts,
+ *   plus the parent addresses that contact registered. A redeemed family
+ *   email stays off that screen. A coordinator account is not an admin.
  */
 
 const freeAccess = {
@@ -339,7 +340,7 @@ test.describe('school license roles', () => {
     await expect(page.getByText('Activar un colegio del piloto')).toHaveCount(0)
   })
 
-  test('school contact sees seat and mission counts on /escuela, not family emails', async ({ page }) => {
+  test('school contact sees seat counts and the parent list they registered', async ({ page }) => {
     await seedSession(page, 'coord@colegio.edu', 'Coordinación')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
@@ -355,6 +356,9 @@ test.describe('school license roles', () => {
                 missions_last_7_days: 12,
                 families_with_missions_last_7_days: 3,
               },
+              parent_invites: [
+                { email: 'padre.lista@colegio.test', sent: true },
+              ],
               licenses: [
                 {
                   id: 'lic-1',
@@ -391,6 +395,9 @@ test.describe('school license roles', () => {
       '2 de 5 asientos canjeados. 12 misiones completadas en los últimos 7 días. 3 familias con al menos una misión.'
     )
     await expect(page.getByTestId('school-license-desk')).toBeVisible()
+    await expect(page.getByText('padre.lista@colegio.test')).toBeVisible()
+    await expect(page.getByText('Código enviado')).toBeVisible()
+    await expect(page.getByText(/práctica CASEL/i)).toBeVisible()
     await expect(page.getByText('ana@familia.test')).toHaveCount(0)
     await expect(page.getByText('Vega')).toHaveCount(0)
     await expect(page.getByText(/correo de la familia/i)).toHaveCount(0)
