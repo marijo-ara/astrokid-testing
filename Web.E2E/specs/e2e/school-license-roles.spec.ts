@@ -3,9 +3,9 @@ import { test, expect } from '../../fixtures/base'
 /**
  * School license views, black-box:
  * - Parent uses /access to redeem one shared code.
- * - AstroKid admin uses /admin/licenses to register the school and read the roster.
- * - The coordinator has no login. They receive the code (email / copied instructions)
- *   and families redeem it. A coordinator account is not an admin.
+ * - AstroKid admin uses /admin/licenses to register the school.
+ * - The school contact logs in and opens /escuela: seat and mission counts, no
+ *   family emails. A coordinator account is not an admin.
  */
 
 const freeAccess = {
@@ -85,7 +85,7 @@ const schoolOrg = {
       starts_at: null,
       ends_at: null,
       notes: null,
-      activated_by_email: 'ops@astrokid.io',
+      activated_by_email: 'team.astrokid@gmail.com',
       payment_status: 'waived',
       payment_reference: 'PILOT-NORTE',
       payment_cleared: true,
@@ -159,14 +159,14 @@ test.describe('school license roles', () => {
   })
 
   test('admin registers the school and the coordinator instructions carry the family code', async ({ page }) => {
-    await seedSession(page, 'ops@astrokid.io', 'Ops')
+    await seedSession(page, 'team.astrokid@gmail.com', 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          email: 'ops@astrokid.io',
+          email: 'team.astrokid@gmail.com',
           role: 'admin',
           admin_source: 'ADMIN_EMAILS',
         }),
@@ -237,12 +237,12 @@ test.describe('school license roles', () => {
     await page.goto('/admin/licenses', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Activar licencia escolar' })).toBeVisible()
     await expect(page.getByText('El contacto del colegio no entra aquí.')).toBeVisible()
-    await expect(page.getByText('Recibe el código. No se convierte en admin.')).toBeVisible()
+    await expect(page.getByText('Recibe el acuerdo para firmar, o el código si activas el pago aquí. No se convierte en admin.')).toBeVisible()
 
     await page.getByLabel('Nombre del colegio').fill('Colegio Norte')
     await page.getByLabel('Correo del coordinador').fill('coord@colegio.edu')
-    await page.getByRole('checkbox', { name: 'Eximir pago (piloto)' }).check()
-    await page.getByRole('button', { name: 'Validar pago y activar licencia' }).click()
+    await page.getByRole('checkbox', { name: 'Eximir pago', exact: true }).check()
+    await page.getByRole('button', { name: 'Activar licencia (pago ya en mano)' }).click()
 
     const result = page.getByTestId('admin-invite-result')
     await expect(result).toContainText('NORTE1')
@@ -254,18 +254,19 @@ test.describe('school license roles', () => {
     expect(note).toContain('Código: NORTE1')
     expect(note).toContain('coord@colegio.edu')
     expect(note).toContain('/access')
+    expect(note).toContain('/escuela')
     expect(note).toContain('No administra la plataforma')
   })
 
   test('admin roster lists the student by given name and keeps the parent email masked', async ({ page }) => {
-    await seedSession(page, 'ops@astrokid.io', 'Ops')
+    await seedSession(page, 'team.astrokid@gmail.com', 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          email: 'ops@astrokid.io',
+          email: 'team.astrokid@gmail.com',
           role: 'admin',
           admin_source: 'ADMIN_EMAILS',
         }),
@@ -354,5 +355,85 @@ test.describe('school license roles', () => {
     await expect(page.getByText(/coord@colegio.edu/)).toBeVisible()
     await expect(page.getByText(/role=admin/)).toBeVisible()
     await expect(page.getByText('Activar un colegio del piloto')).toHaveCount(0)
+  })
+
+  test('school contact sees seat and mission counts on /escuela, not family emails', async ({ page }) => {
+    await seedSession(page, 'coord@colegio.edu', 'Coordinación')
+    await page.route('**/entitlements/school-desk', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          schools: [
+            {
+              organization_id: 'org-1',
+              name: 'Colegio Norte',
+              student_count: 100,
+              usage: {
+                missions_last_7_days: 12,
+                families_with_missions_last_7_days: 3,
+              },
+              licenses: [
+                {
+                  id: 'lic-1',
+                  status: 'active',
+                  seats: 5,
+                  payment_status: 'waived',
+                  ends_at: null,
+                  families_active: 2,
+                  invites: [
+                    {
+                      code: 'NORTE1',
+                      status: 'active',
+                      redeemed_count: 2,
+                      max_redemptions: 5,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      })
+    })
+    await page.route('**/family-profiles/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'fam-coord', parent: {}, children: [] }),
+      })
+    })
+
+    await page.goto('/escuela', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByTestId('school-usage')).toHaveText(
+      '2 de 5 asientos canjeados. 12 misiones completadas en los últimos 7 días. 3 familias con al menos una misión.'
+    )
+    await expect(page.getByTestId('school-license-desk')).toBeVisible()
+    await expect(page.getByText('ana@familia.test')).toHaveCount(0)
+    await expect(page.getByText('Vega')).toHaveCount(0)
+    await expect(page.getByText(/correo de la familia/i)).toHaveCount(0)
+  })
+
+  test('a redeeming parent cannot open the school desk', async ({ page }) => {
+    await seedSession(page, 'ana@familia.test', 'Ana')
+    await page.route('**/entitlements/school-desk', async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'School contact only' }),
+      })
+    })
+    await page.route('**/family-profiles/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'fam-1', parent: {}, children: [] }),
+      })
+    })
+
+    await page.goto('/escuela', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByTestId('school-desk-denied')).toBeVisible()
+    await expect(page.getByTestId('school-license-desk')).toHaveCount(0)
+    await expect(page.getByText('ana@familia.test')).toHaveCount(0)
   })
 })
