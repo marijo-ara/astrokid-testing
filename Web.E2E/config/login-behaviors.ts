@@ -35,14 +35,14 @@ export const getLoginBehavior = (env: EnvironmentConfig): LoginBehavior => {
       return {
         type: 'mock',
         credentials: [
-          { email: 'team.astrokid@gmail.com', password: 'dev123', displayName: 'Dev User' },
-          { email: 'team.astrokid@gmail.com', password: 'test123', displayName: 'Test User' }
+          { email: 'admin_test@astrokid.io', password: 'dev123', displayName: 'Dev User' },
+          { email: 'admin_test@astrokid.io', password: 'test123', displayName: 'Test User' }
         ],
         googleEnabled: true,
         emailEnabled: true,
         mockUser: {
           uid: 'dev-user-123',
-          email: 'team.astrokid@gmail.com',
+          email: 'admin_test@astrokid.io',
           displayName: 'Usuario de Desarrollo'
         }
       };

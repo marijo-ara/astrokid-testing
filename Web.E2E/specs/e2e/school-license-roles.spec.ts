@@ -1,12 +1,18 @@
 import { test, expect } from '../../fixtures/base'
 
 /**
- * School license views, black-box:
- * - Parent uses /access to redeem one shared code.
- * - AstroKid admin uses /admin/licenses to register the school.
- * - The school contact logs in and opens /escuela: seat and mission counts,
- *   plus the parent addresses that contact registered. A redeemed family
- *   email stays off that screen. A coordinator account is not an admin.
+ * Roles de la licencia escolar, caja negra. El mismo correo no cambia de rol
+ * al abrir otra pantalla.
+ * - El admin de AstroKid usa /admin/licenses. El correo del coordinador recibe
+ *   el acuerdo y, al activar, el código de familias.
+ * - El contacto del colegio abre /escuela: solo la licencia activa, los padres
+ *   que ese contacto registró, el primer nombre de quien ya canjeó, la práctica
+ *   CASEL y los cuatro marcos. El correo de una familia que ya canjeó no aparece.
+ *   El coordinador no es admin.
+ * - El padre canjea un código compartido en /access. El tope pasa al de la
+ *   escuela (100 por niño) en la misma familia.
+ *   /admin/licencias, /escuelas y /acceso son reescrituras de Next: sirven
+ *   la misma página y el navegador se queda en esa dirección.
  */
 
 const freeAccess = {
@@ -67,6 +73,92 @@ const billing = {
   school_license_revoked: false,
 }
 
+const activeSchoolDesk = {
+  schools: [
+    {
+      organization_id: 'org-1',
+      name: 'Colegio Norte',
+      student_count: 100,
+      usage: {
+        missions_last_7_days: 12,
+        families_with_missions_last_7_days: 3,
+      },
+      coverage: {
+        student_count: 1,
+        missions_completed: 2,
+        students_with_every_primary: 0,
+        students_with_every_secondary: 0,
+      },
+      students: [
+        {
+          student_key: 'stu-vega',
+          given_name: 'Vega',
+          missions_completed: 2,
+          primaries_practiced: 2,
+          secondaries_practiced: 2,
+          how_practiced: ['effort'],
+          why_practiced: ['relatedness'],
+          think_practiced: ['planning'],
+          casel: {
+            selfAwareness: { primary: 0, secondary: 1 },
+            selfManagement: { primary: 0, secondary: 1 },
+            socialAwareness: { primary: 1, secondary: 0 },
+            relationshipSkills: { primary: 0, secondary: 1 },
+            responsibleDecisionMaking: { primary: 1, secondary: 0 },
+          },
+        },
+      ],
+      licenses: [
+        {
+          id: 'lic-1',
+          status: 'active',
+          seats: 5,
+          payment_status: 'waived',
+          ends_at: null,
+          families_active: 2,
+          invites: [
+            {
+              code: 'NORTE1',
+              status: 'active',
+              redeemed_count: 2,
+              max_redemptions: 5,
+            },
+          ],
+          parent_invites: [
+            {
+              email: 'padre.lista@colegio.test',
+              sent: true,
+              given_name: 'Ana',
+              family_name: 'Campos',
+            },
+          ],
+          family_seats: [
+            {
+              family_id: 'fam-1',
+              plan: 'school',
+              children: [
+                { id: 'child-1', given_name: 'Vega', plan: 'school' },
+                { id: 'child-2', given_name: 'Sol', plan: 'school' },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'lic-draft',
+          status: 'draft',
+          seats: 5,
+          payment_status: 'pending',
+          ends_at: null,
+          families_active: 0,
+          invites: [],
+          parent_invites: [],
+          family_seats: [],
+        },
+      ],
+    },
+  ],
+}
+
 const schoolOrg = {
   id: 'org-1',
   name: 'Colegio Norte',
@@ -86,7 +178,7 @@ const schoolOrg = {
       starts_at: null,
       ends_at: null,
       notes: null,
-      activated_by_email: 'team.astrokid@gmail.com',
+      activated_by_email: 'admin_test@astrokid.io',
       payment_status: 'waived',
       payment_reference: 'PILOT-NORTE',
       payment_cleared: true,
@@ -160,14 +252,14 @@ test.describe('school license roles', () => {
   })
 
   test('admin registers the school and the coordinator instructions carry the family code', async ({ page }) => {
-    await seedSession(page, 'team.astrokid@gmail.com', 'Ops')
+    await seedSession(page, 'admin_test@astrokid.io', 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          email: 'team.astrokid@gmail.com',
+          email: 'admin_test@astrokid.io',
           role: 'admin',
           admin_source: 'ADMIN_EMAILS',
         }),
@@ -242,14 +334,14 @@ test.describe('school license roles', () => {
   })
 
   test('admin roster lists the student by given name and keeps the parent email masked', async ({ page }) => {
-    await seedSession(page, 'team.astrokid@gmail.com', 'Ops')
+    await seedSession(page, 'admin_test@astrokid.io', 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          email: 'team.astrokid@gmail.com',
+          email: 'admin_test@astrokid.io',
           role: 'admin',
           admin_source: 'ADMIN_EMAILS',
         }),
@@ -346,40 +438,7 @@ test.describe('school license roles', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          schools: [
-            {
-              organization_id: 'org-1',
-              name: 'Colegio Norte',
-              student_count: 100,
-              usage: {
-                missions_last_7_days: 12,
-                families_with_missions_last_7_days: 3,
-              },
-              parent_invites: [
-                { email: 'padre.lista@colegio.test', sent: true },
-              ],
-              licenses: [
-                {
-                  id: 'lic-1',
-                  status: 'active',
-                  seats: 5,
-                  payment_status: 'waived',
-                  ends_at: null,
-                  families_active: 2,
-                  invites: [
-                    {
-                      code: 'NORTE1',
-                      status: 'active',
-                      redeemed_count: 2,
-                      max_redemptions: 5,
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        }),
+        body: JSON.stringify(activeSchoolDesk),
       })
     })
     await page.route('**/family-profiles/**', async (route) => {
@@ -397,10 +456,133 @@ test.describe('school license roles', () => {
     await expect(page.getByTestId('school-license-desk')).toBeVisible()
     await expect(page.getByText('padre.lista@colegio.test')).toBeVisible()
     await expect(page.getByText('Código enviado')).toBeVisible()
-    await expect(page.getByText(/práctica CASEL/i)).toBeVisible()
+    await expect(page.getByTestId('school-parent-roster')).toBeVisible()
+    await expect(page.getByLabel('Mensaje a enviar')).toHaveValue(/NORTE1/)
+    await expect(page.getByLabel('Mensaje a enviar')).toHaveValue(/CASEL/)
+    await expect(page.getByLabel('Mensaje a enviar')).toHaveValue(/Hasta 100 misiones por niño/)
+    await expect(page.getByTestId('school-license-card')).toHaveCount(1)
+    await expect(page.getByText('pending')).toHaveCount(0)
+    await expect(
+      page.getByText(
+        'Este es el mensaje que se enviará. Explica cómo activar con el código, qué incluye la licencia y la práctica CASEL. Edítalo si hace falta.'
+      )
+    ).toBeVisible()
+    await expect(page.getByTestId('school-arc-frames')).toContainText('mentalidad de crecimiento')
+    await expect(page.getByTestId('school-arc-frames')).toContainText('autodeterminación')
+    await expect(page.getByTestId('school-arc-frames')).toContainText('pensar')
+    await expect(page.getByTestId('school-arc-frames')).toContainText('no es un diagnóstico')
+    await expect(page.getByTestId('school-personalization')).toContainText('intereses')
+    await expect(page.getByTestId('school-personalization')).toContainText('diálogo en familia')
+    await expect(page.getByTestId('school-coverage-summary')).toContainText(
+      '0 de 1 estudiantes practicaron las 5 competencias CASEL como primaria'
+    )
+    await expect(page.getByTestId('school-student-coverage')).toContainText('primaria / apoyo')
+    await expect(page.getByTestId('school-student-coverage')).toContainText('esfuerzo')
+    await expect(page.getByTestId('school-student-coverage')).toContainText('Vega')
+    await expect(page.getByTestId('school-family-seats')).toContainText('Vega · Sol')
+    await expect(page.getByTestId('school-family-seats')).toContainText('Licencia escolar')
+    await expect(page.getByRole('button', { name: 'Revocar familia' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Regenerar código de la familia' })).toBeVisible()
     await expect(page.getByText('ana@familia.test')).toHaveCount(0)
-    await expect(page.getByText('Vega')).toHaveCount(0)
     await expect(page.getByText(/correo de la familia/i)).toHaveCount(0)
+  })
+
+  test('a badly formed parent address stays off the list', async ({ page }) => {
+    await seedSession(page, 'coord@colegio.edu', 'Coordinador')
+    await page.route('**/entitlements/school-desk', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(activeSchoolDesk),
+      })
+    })
+    await page.route('**/family-profiles/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'fam-coord', parent: {}, children: [] }),
+      })
+    })
+
+    await page.goto('/escuela', { waitUntil: 'domcontentloaded' })
+    await page.getByLabel('Nombre').fill('Ana')
+    await page.getByLabel('Apellidos').fill('Campos')
+    await page.getByRole('textbox', { name: 'Correo', exact: true }).fill('sin-arroba')
+    await page.getByRole('button', { name: 'Agregar padre' }).click()
+    await expect(page.getByText('Revisa el formato del correo.')).toBeVisible()
+    await expect(page.getByTestId('school-parent-pending')).toHaveCount(0)
+    await page.getByRole('textbox', { name: 'Correo', exact: true }).fill('')
+    await page.getByRole('button', { name: 'Enviar el código a estos padres' }).click()
+    await expect(page.getByText('Agrega al menos un correo de padre.')).toBeVisible()
+  })
+
+  test('revoking a family seat asks first and posts the family onto Free', async ({ page }) => {
+    await seedSession(page, 'coord@colegio.edu', 'Coordinador')
+    await page.route('**/entitlements/school-desk', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(activeSchoolDesk),
+      })
+    })
+    let released = false
+    await page.route('**/entitlements/school-seat', async (route) => {
+      const body = route.request().postDataJSON() as {
+        action?: string
+        family_id?: string
+        child_id?: string | null
+      }
+      expect(body.action).toBe('revoke')
+      expect(body.family_id).toBe('fam-1')
+      expect(body.child_id ?? null).toBeNull()
+      released = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ plan: 'free_capped', code: null, scope: 'family' }),
+      })
+    })
+    await page.route('**/family-profiles/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'fam-coord', parent: {}, children: [] }),
+      })
+    })
+
+    let confirmText = ''
+    page.once('dialog', (dialog) => {
+      confirmText = dialog.message()
+      void dialog.accept()
+    })
+    await page.goto('/escuela', { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Revocar familia' }).click()
+    await expect.poll(() => confirmText).toContain('Esta familia pasa a Free')
+    await expect.poll(() => released).toBe(true)
+  })
+
+  test('an agreement link without a live token does not open the upload form', async ({ page }) => {
+    await page.route('**/school-agreements/packet**', async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Upload link not found' }),
+      })
+    })
+
+    await page.goto('/escuela/acuerdo', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: 'Acuerdo y comprobante' })).toBeVisible()
+    await expect(
+      page.getByText('Este enlace no está vigente. Pide a AstroKid que reenvíe el acuerdo.')
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Enviar acuerdo firmado y comprobante' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Volver al inicio' })).toBeVisible()
+
+    await page.goto('/escuela/acuerdo?token=falso', { waitUntil: 'domcontentloaded' })
+    await expect(
+      page.getByText('Este enlace no está vigente. Pide a AstroKid que reenvíe el acuerdo.')
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Enviar acuerdo firmado y comprobante' })).toHaveCount(0)
   })
 
   test('a redeeming parent cannot open the school desk', async ({ page }) => {
