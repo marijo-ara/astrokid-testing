@@ -30,11 +30,14 @@ export class LoginPage extends BasePage {
     // Alternative login methods
     this.$googleButton = this.page.locator('[data-testid="login-google-button"]').or(this.page.getByRole('button', { name: /Entrar con Google|Continuar con Google|Registrarse con Google/i }));
     this.$registerLink = this.page.getByRole('link', { name: /Crear cuenta|Registrarse/i });
-    this.$forgotPasswordLink = this.page.getByRole('link', { name: /¿Olvidaste tu contraseña?/i });
+    this.$forgotPasswordLink = this.page
+      .locator('[data-testid="login-forgot-password"]')
+      .or(this.page.getByRole('button', { name: /Olvidaste tu contraseña|Forgot your password/i }))
+      .or(this.page.getByRole('link', { name: /Olvidaste tu contraseña|Forgot your password/i }));
     
     // Messages - use data-testid first
     this.$errorMessage = this.page.locator('[data-testid="login-error-message"], [class*="error"], [class*="alert-error"]').first();
-    this.$successMessage = this.page.locator('[class*="success"], [class*="alert-success"]').first();
+    this.$successMessage = this.page.locator('[data-testid="login-reset-notice"], [class*="success"], [class*="alert-success"]').first();
   }
 
   /**
