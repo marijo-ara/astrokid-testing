@@ -2,15 +2,20 @@
 
 Pruebas que hablan con AstroKid solo por HTTP o navegador, contra un entorno desplegado.
 Las pruebas unitarias y de componente viven en cada repo de código.
-Estrategia completa: [`docs/TEST_STRATEGY.md`](docs/TEST_STRATEGY.md).
-Requisitos COPPA y trazabilidad: [`docs/COPPA_REQUIREMENTS.md`](docs/COPPA_REQUIREMENTS.md).
+
+Documentación de QA y casos (canónica): [`docs/README.md`](docs/README.md).
+Estrategia: [`docs/TEST_STRATEGY.md`](docs/TEST_STRATEGY.md).
+COPPA: [`docs/COPPA_REQUIREMENTS.md`](docs/COPPA_REQUIREMENTS.md).
+Escuela (manual): [`docs/casos/ESCUELA.md`](docs/casos/ESCUELA.md).
 
 | Carpeta | Qué contiene | Stack |
 | --- | --- | --- |
 | `API.Tests` | Contratos del backend: auth, familias, misiones, wallet, seguridad, COPPA, health | C# .NET 9, NUnit, RestSharp |
 | `UI.Tests` | Panel de adultos y flujo OAuth del servidor auth | C# Playwright |
 | `Web.E2E` | Web Next.js: smoke, E2E, privacidad, accesibilidad, performance | Playwright TS |
-| `Mobile.E2E` | Appium (sandbox) | WebdriverIO + Serenity |
+| `Mobile.E2E` | Appium contra el APK (login con QR) + sandbox | WebdriverIO + Serenity |
+| `Ubika.API.Tests` | Contratos HTTP de Ubika (health, 401, PII, SSRF, 429) | C# .NET 9, NUnit, RestSharp |
+| `Ubika.Web.E2E` | Web Ubika: smoke + puertas de login/admin | Playwright TS |
 | `Core` | Cliente HTTP y configuración compartida | C# |
 
 ## Variables
@@ -23,6 +28,8 @@ Requisitos COPPA y trazabilidad: [`docs/COPPA_REQUIREMENTS.md`](docs/COPPA_REQUI
 | `AUTH_BASE_URL` | Servidor astrokid-auth (UI.Tests/AuthOAuthFlowTests) |
 | `ASTROKID_UI_EMAIL`, `ASTROKID_UI_PASSWORD` | Login del panel (secretos del pipeline) |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | Previews protegidas de Vercel |
+| `UBIKA_API_BASE_URL` | API Ubika desplegada (`Ubika.API.Tests`) |
+| `UBIKA_WEB_BASE_URL` | Web Ubika (`Ubika.Web.E2E`). Sin esta variable las pruebas se omiten. |
 
 El backend QA necesita `COPPA_EMAIL_PLUS_EXPOSE_TOKEN=true` para completar el
 consentimiento email-plus desde las pruebas. Esa bandera nunca va en producción.
@@ -43,4 +50,13 @@ cd Web.E2E; npm install; npx playwright install chromium
 $env:PLAYWRIGHT_BASE_URL = "https://<web-qa>"
 npm run test:smoke
 npx playwright test --grep @coppa
+
+# Ubika
+$env:UBIKA_API_BASE_URL = "https://<ubika-api>"
+dotnet test Ubika.API.Tests --filter "Category=Smoke"
+cd Ubika.Web.E2E; npm install; npx playwright install chromium
+$env:UBIKA_WEB_BASE_URL = "https://www.ubikacr.app" # o http://localhost:3000
+npm run test:smoke
 ```
+
+Pirámide Ubika: [`docs/UBIKA_TEST_PYRAMID.md`](docs/UBIKA_TEST_PYRAMID.md).

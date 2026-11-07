@@ -8,7 +8,7 @@ namespace API.Tests.Expression
 {
   /// <summary>
   /// Contract tests for child expression + familyMapAnswers (parent family maps).
-  /// Aligns with MANUAL_SMOKE_FAMILY_MAPS.md troubleshooting.
+  /// Aligns with docs/casos/FAMILY_MAPS_SMOKE.md troubleshooting.
   /// </summary>
   [TestFixture]
   [Category("API")]

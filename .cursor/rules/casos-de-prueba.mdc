@@ -1,0 +1,34 @@
+---
+description: Al crear o actualizar un caso de prueba manual, usa precondiciones y un esperado por paso
+globs: docs/casos/**/*.md,docs/qa/**/*.md
+alwaysApply: false
+---
+
+# Casos de prueba
+
+Cada caso nuevo o editado en `docs/casos/` (o ops en `docs/qa/`) queda listo para ejecutarse sin preguntar al autor. Un paso, una acción, un resultado observable. Índice: `docs/README.md`.
+
+## Plantilla
+
+```markdown
+### ID-NN: Resultado observable en una frase
+
+- **Prioridad:** Alta | Media | Baja
+- **Datos:** identificadores sintéticos de la tabla del documento
+- **Precondiciones:**
+  - Entorno, sesión, plan y datos ya verdaderos antes del paso 1.
+
+1. Una sola acción.
+   - **Esperado:** Lo que la persona ve o el código HTTP. Cita el texto de la UI.
+```
+
+## Al escribir
+
+- El título dice el resultado, no el componente.
+- Las precondiciones no repiten los pasos. Si el paso las construye, no son precondiciones.
+- El esperado cabe en el paso que lo provoca. No dejes un bloque único al final.
+- Incluye el camino que debe fallar: 401, 403 o el tope. Di el `detail.code` cuando la API lo tiene.
+- Datos sintéticos (`soporte+caso01@astrokid.io`, `child_test_1`). Sin correos, nombres, códigos ni tokens reales. Requiere catch-all (o alias `+`) en `astrokid.io` hacia `soporte@astrokid.io`.
+- Si el caso ya existe, al actualizarlo pásalo a esta plantilla. Agrega su fila en el registro de resultados.
+
+Ejemplo corto: paso "Canjear el código" → esperado "Código canjeado…" y `POST /entitlements/redeem` **200**. El esperado no va en un párrafo aparte tres pasos más abajo.

@@ -7,7 +7,7 @@ namespace UI.Tests;
 
 /// <summary>
 /// Smoke UI for parent family maps (Empathy / Resilience observations + journey).
-/// Manual companion: UI.Tests/MANUAL_SMOKE_FAMILY_MAPS.md (~5 min).
+/// Manual companion: docs/casos/FAMILY_MAPS_SMOKE.md (~5 min).
 /// Requires ASTROKID_UI_EMAIL + ASTROKID_UI_PASSWORD.
 /// </summary>
 [TestFixture]

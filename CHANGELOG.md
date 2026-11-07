@@ -1,5 +1,19 @@
 # Changelog - Mejoras en Tests
 
+## [2026-11] - Docs QA consolidados en este repo
+
+### ✨ Agregado
+- **`docs/README.md`** — índice canónico de QA / casos / auth / ops
+- **`docs/casos/`** — `LOGIN_ONBOARDING.md`, `ESCUELA.md`, `FAMILY_MAPS_SMOKE.md`, `HACIENDA_FACTURACION.md`
+- **`docs/qa/RESET_DATABASE.md`**, **`docs/auth/`** (plan OAuth + guía implementación)
+- Regla Cursor `.cursor/rules/casos-de-prueba.mdc`
+
+### 🔧 Movido desde
+- `astro-kid-web/docs/qa/CASOS_PRUEBA_LOGIN_ONBOARDING.md`
+- `astro-kid-backend/docs/E2E_HACIENDA_SCENARIOS.md`, `docs/qa/RESET_DATABASE.md` (+ stubs en `docs/testing/`)
+- `astrokid-auth/docs/TEST_PLAN_OAUTH_OIDC.md`, `IMPLEMENTACION_TESTS_API_E2E.md`
+- `UI.Tests/MANUAL_SMOKE_FAMILY_MAPS.md` → `docs/casos/FAMILY_MAPS_SMOKE.md`
+
 ## [2026-10] - Pirámide de pruebas: caja negra centralizada + COPPA
 
 ### ✨ Agregado
@@ -35,7 +49,7 @@
 - UI login (Parents / Dashboard / FamilyMaps) via `TestCredentials`
 
 ### 📋 Manual
-- Ver `UI.Tests/MANUAL_SMOKE_FAMILY_MAPS.md` (+ env vars abajo)
+- Ver `docs/casos/FAMILY_MAPS_SMOKE.md` (+ env vars abajo)
 
 ## [2026-03] - Family maps parent smoke
 
