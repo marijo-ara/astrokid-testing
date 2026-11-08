@@ -22,6 +22,8 @@ const expectTimeout = Number(process.env.PLAYWRIGHT_EXPECT_TIMEOUT) || Math.min(
 
 const allProjects = [
   { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+  /** Google Chrome instalado (no Chromium). Solo: --project=chrome */
+  { name: 'chrome', use: { ...devices['Desktop Chrome'], channel: 'chrome' } },
   { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
   { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   { name: 'Mobile Chrome', use: { ...devices['Pixel 5'], hasTouch: true } },
@@ -44,13 +46,12 @@ export default defineConfig({
   globalSetup: require.resolve('./fixtures/global-setup.ts'),
   use: {
     baseURL: env.baseURL,
-    extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-      ? {
-          'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
-          'x-vercel-set-bypass-cookie': 'samesitenone',
-        }
-      : {},
-    storageState: process.env.VERCEL_QA_PASSWORD ? VERCEL_PASSWORD_STATE : undefined,
+    // NO poner x-vercel-* en extraHTTPHeaders: Playwright los envía también a Firebase y rompe CORS.
+    // Bypass: cookie en storageState (global-setup) + route por origen en fixtures/vercelProtectionHeaders.ts
+    storageState:
+      process.env.VERCEL_QA_PASSWORD || process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+        ? VERCEL_PASSWORD_STATE
+        : undefined,
     actionTimeout: env.timeout,
     navigationTimeout: env.timeout,
     trace: 'on-first-retry',

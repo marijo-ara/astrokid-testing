@@ -2,12 +2,69 @@ import { expect, type Page } from '@playwright/test'
 import {
   emailAlreadyRegisteredLocatorPattern,
   loginAccountNotFoundLocatorPattern,
+  loginFailureIsRetryable,
   loginMeansAccountNotFound,
+  provisioningLoginShouldTryRegistro,
+  messageMeansLoginNetworkError,
   normalizeBannerText,
   PROVISIONING_AUTH_ERROR_KIND,
   PROVISIONING_AUTH_UI,
   registroMeansEmailInUse,
 } from '../config/provisioningAuthMessages'
+import {
+  formatIdentityToolkitProbe,
+  startIdentityToolkitSignInProbe,
+  type IdentityToolkitSignInProbe,
+} from './firebaseSignInProbe'
+import { ensureVercelProtectionOnContext } from '../fixtures/vercelProtectionHeaders'
+
+const LOGIN_SUBMIT_RETRIES = 3
+
+let loginProbeDiagnostics = ''
+
+export function consumeLastLoginProbeDiagnostics(): string {
+  const value = loginProbeDiagnostics
+  loginProbeDiagnostics = ''
+  return value
+}
+
+async function waitForLoginFormReady(page: Page): Promise<void> {
+  await expect(page.getByTestId('login-title')).toBeVisible({ timeout: 25_000 })
+  await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('#password')).toBeVisible({ timeout: 20_000 })
+  const submit = page.getByTestId('login-submit-button')
+  await expect(submit).toBeVisible({ timeout: 20_000 })
+  await expect(submit).toBeEnabled({ timeout: 20_000 })
+  await expect(page.getByTestId('login-google-button')).toBeVisible({ timeout: 20_000 })
+}
+
+async function fillLoginField(page: Page, selector: string, value: string): Promise<void> {
+  const field = page.locator(selector)
+  await field.click()
+  await field.fill('')
+  await field.pressSequentially(value, { delay: 12 })
+  await expect(field).toHaveValue(value, { timeout: 8_000 })
+}
+
+async function submitLoginForm(page: Page, email: string, password: string): Promise<void> {
+  const trimmedEmail = email.trim()
+  const trimmedPassword = password.trim()
+
+  await fillLoginField(page, '#email', trimmedEmail)
+  await fillLoginField(page, '#password', trimmedPassword)
+
+  if (process.env.PROVISIONING_PAUSE_LOGIN === '1') {
+    await page.pause()
+    const loginPath = new URL(page.url())
+    if (!/\/login(?:\?|$)/.test(loginPath.pathname + loginPath.search)) {
+      return
+    }
+  }
+
+  const passwordField = page.locator('#password')
+  await expect(page.getByTestId('login-submit-button')).toBeEnabled({ timeout: 10_000 })
+  await passwordField.press('Enter')
+}
 
 export type RegisterOutcome =
   | 'created'
@@ -22,7 +79,7 @@ export type EnsureAccountOutcome = 'logged_in' | 'registered' | 'confirm_email'
 export type LoginAttemptResult =
   | { status: 'logged_in' }
   | { status: 'account_not_found'; message: string }
-  | { status: 'login_failed'; message: string }
+  | { status: 'login_failed'; message: string; kind?: string | null }
 
 async function readAuthBanner(
   page: Page,
@@ -41,6 +98,114 @@ async function readLoginErrorBanner(page: Page): Promise<{ message: string | nul
   return readAuthBanner(page, 'login-error-message')
 }
 
+function isOffLoginRoute(page: Page): boolean {
+  const { pathname, search } = new URL(page.url())
+  return !/\/login(?:\?|$)/.test(pathname + search)
+}
+
+/** Salir en header desktop/mobile; `logout-button` solo está en menú hamburguesa/dropdown. */
+function parentSessionLogoutLocator(page: Page) {
+  return page
+    .locator('[data-testid="logout-button-desktop"]')
+    .or(page.locator('[data-testid="logout-button-mobile"]'))
+    .or(page.locator('[data-testid="logout-button"]'))
+    .or(page.getByRole('button', { name: /Salir|Log out|Sign out|Cerrar sesión/i }))
+}
+
+function isOnboardingRoute(page: Page): boolean {
+  return /\/onboarding(?:\?|$)/.test(new URL(page.url()).pathname)
+}
+
+const ONBOARDING_WELCOME_HEADING = /Así acompaña AstroKid|How AstroKid stays with you/i
+
+async function isParentDashboardGreetingVisible(page: Page): Promise<boolean> {
+  return page.getByText(/¡Hola,|Hello,/i).isVisible({ timeout: 3_000 }).catch(() => false)
+}
+
+async function isOnboardingWelcomeVisible(page: Page): Promise<boolean> {
+  return page
+    .getByRole('heading', { name: ONBOARDING_WELCOME_HEADING })
+    .isVisible({ timeout: 5_000 })
+    .catch(() => false)
+}
+
+/** Sin perfil familiar, login redirige a /onboarding (bienvenida educativa), no al dashboard. */
+async function hasOnboardingParentSession(page: Page): Promise<boolean> {
+  if (!isOnboardingRoute(page)) return false
+  if (await isAuthGuardLoginWall(page)) return false
+  if (await isOnboardingWelcomeVisible(page)) return true
+  return page
+    .getByRole('button', { name: /Crear el perfil|Create the profile/i })
+    .isVisible({ timeout: 5_000 })
+    .catch(() => false)
+}
+
+async function signOutViaOnboardingCancel(page: Page): Promise<void> {
+  const cancel = page.getByRole('button', { name: /Cancelar onboarding|Cancel onboarding/i })
+  if (!(await cancel.isVisible({ timeout: 5_000 }).catch(() => false))) return
+  await cancel.click()
+  await page
+    .getByRole('heading', { name: /¿Cancelar onboarding\?|Cancel onboarding\?/i })
+    .waitFor({ state: 'visible', timeout: 8_000 })
+    .catch(() => {})
+  const confirm = page.getByRole('button', { name: /^Cancelar$|^Cancel$/i }).last()
+  if (await confirm.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await confirm.click()
+    await page
+      .waitForURL((url) => !/\/onboarding(?:\?|$)/.test(url.pathname), { timeout: 20_000 })
+      .catch(() => {})
+  }
+}
+
+/** Pantallas intermedias tras login OK (DashboardShell, PrivacyReconsent). */
+async function waitForPostLoginLoadingShell(page: Page): Promise<void> {
+  const accessCheck = page.getByText(/Verificando acceso|Verifying access/i)
+  if (await accessCheck.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await accessCheck.waitFor({ state: 'detached', timeout: 45_000 }).catch(() => {})
+  }
+  const checking = page.getByText(/Revisando el aviso de privacidad|Checking (the )?privacy notice/i)
+  if (await checking.isVisible({ timeout: 2_500 }).catch(() => false)) {
+    await checking.waitFor({ state: 'detached', timeout: 45_000 }).catch(() => {})
+  }
+  const loading = page.getByText(/^Cargando\.\.\.$|^Loading\.\.\.$/i)
+  if (await loading.first().isVisible({ timeout: 1_500 }).catch(() => false)) {
+    await loading.first().waitFor({ state: 'detached', timeout: 20_000 }).catch(() => {})
+  }
+}
+
+async function waitForPostLoginShellSettled(page: Page): Promise<void> {
+  await waitForPostLoginLoadingShell(page)
+  await page.waitForURL(/dashboard|onboarding/, { timeout: 25_000 }).catch(() => {})
+
+  if ((await isOnboardingWelcomeVisible(page)) || isOnboardingRoute(page)) {
+    await page
+      .getByRole('heading', { name: ONBOARDING_WELCOME_HEADING })
+      .waitFor({ state: 'visible', timeout: 45_000 })
+    return
+  }
+
+  const logout = parentSessionLogoutLocator(page).first()
+  await logout.waitFor({ state: 'visible', timeout: 15_000 }).catch(() =>
+    page.getByText(/¡Hola,|Hello,/i).waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {})
+  )
+}
+
+/** REG-PROV-01: primera tarjeta educativa antes del wizard del niño. */
+export async function assertOnboardingWelcomeFirstScreen(page: Page): Promise<void> {
+  if (!(await isOnboardingWelcomeVisible(page))) {
+    await page.waitForURL(/onboarding/, { timeout: 25_000 })
+  }
+  await expect(page.getByRole('heading', { name: ONBOARDING_WELCOME_HEADING })).toBeVisible({
+    timeout: 30_000,
+  })
+  await expect(page.getByRole('button', { name: /Crear el perfil|Create the profile/i })).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByText(/Agentes que juegan ahora|Agents playing now/i)).toBeVisible({
+    timeout: 15_000,
+  })
+}
+
 async function readRegistroBanner(page: Page): Promise<{ message: string | null; kind: string | null }> {
   const fromTestId = await readAuthBanner(page, 'registro-error-message')
   if (fromTestId.message) return fromTestId
@@ -55,32 +220,69 @@ async function readRegistroBanner(page: Page): Promise<{ message: string | null;
  * Login en /login. account_not_found si data-auth-error-kind=account-not-found, copy loginAccountNotFound
  * o CTA login-failure-register (misma condición que LoginFailureHelp en la web).
  */
-export async function attemptLoginWithCredentials(
+async function attemptLoginOnce(
   page: Page,
   email: string,
-  password: string
+  password: string,
+  probe: IdentityToolkitSignInProbe
 ): Promise<LoginAttemptResult> {
-  await page.goto('/login')
+  await page.goto('/login', { waitUntil: 'load' })
   await expect(page).toHaveURL(/login/)
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
+  await waitForLoginFormReady(page)
+  await submitLoginForm(page, email, password)
 
-  await page.getByTestId('login-email-input').fill(email)
-  await page.getByTestId('login-password-input').fill(password)
-  await page.getByTestId('login-submit-button').click()
-
-  const waitMs = 30_000
+  const waitMs = 45_000
   const leftLogin = page
     .waitForURL((url) => !/\/login(?:\?|$)/.test(url.pathname + url.search), { timeout: waitMs })
-    .then(() => 'left' as const)
+    .then(() => 'success' as const)
 
-  const errorVisible = page
+  const navigated = page
+    .waitForURL(/dashboard|onboarding/, { timeout: waitMs })
+    .then(() => 'success' as const)
+
+  const accessVerifying = page
+    .getByText(/Verificando acceso|Verifying access/i)
+    .waitFor({ state: 'visible', timeout: waitMs })
+    .then(() => 'success' as const)
+
+  const onboardingWelcome = page
+    .getByRole('heading', { name: ONBOARDING_WELCOME_HEADING })
+    .waitFor({ state: 'visible', timeout: waitMs })
+    .then(() => 'success' as const)
+
+  const loginErrorBanner = page
     .getByTestId('login-error-message')
     .waitFor({ state: 'visible', timeout: waitMs })
     .then(() => 'error' as const)
 
-  const first = await Promise.race([leftLogin, errorVisible]).catch(() => 'timeout' as const)
+  const first = await Promise.race([
+    leftLogin,
+    navigated,
+    accessVerifying,
+    onboardingWelcome,
+    loginErrorBanner,
+  ]).catch(() => 'timeout' as const)
 
-  if (first === 'left' && (await hasParentSession(page))) {
-    return { status: 'logged_in' }
+  const loginSucceeded =
+    first === 'success' ||
+    (first === 'timeout' && isOffLoginRoute(page)) ||
+    /dashboard|onboarding/.test(new URL(page.url()).pathname)
+
+  if (first !== 'error' && (loginSucceeded || isOffLoginRoute(page))) {
+    await waitForPostLoginShellSettled(page)
+    if (await hasParentSession(page)) {
+      return { status: 'logged_in' }
+    }
+  }
+
+  if (first !== 'error' && isOffLoginRoute(page)) {
+    return {
+      status: 'login_failed',
+      message:
+        'Login redirigió fuera de /login pero no hay dashboard (Salir / ¡Hola) ni onboarding (Así acompaña AstroKid).',
+      kind: null,
+    }
   }
 
   const { message, kind } = await readLoginErrorBanner(page)
@@ -89,25 +291,39 @@ export async function attemptLoginWithCredentials(
     .isVisible({ timeout: 1_500 })
     .catch(() => false)
 
-  if (loginMeansAccountNotFound(kind, message) || showsRegisterCta) {
-    if (message) {
+  if (
+    loginMeansAccountNotFound(kind, message) ||
+    showsRegisterCta ||
+    provisioningLoginShouldTryRegistro(kind, message)
+  ) {
+    if (message && loginMeansAccountNotFound(kind, message)) {
       await expect(page.getByTestId('login-error-message')).toContainText(
         loginAccountNotFoundLocatorPattern()
       )
     }
-    if (kind) {
+    if (kind && loginMeansAccountNotFound(kind, message)) {
       expect(kind, 'kind de login alineado con firebaseAuthErrors').toBe(
         PROVISIONING_AUTH_ERROR_KIND.accountNotFound
       )
     }
     return {
       status: 'account_not_found',
-      message: message ?? PROVISIONING_AUTH_UI.loginAccountNotFound.es,
+      message:
+        message ??
+        (provisioningLoginShouldTryRegistro(kind, message)
+          ? PROVISIONING_AUTH_UI.loginInvalidCredentials.es
+          : PROVISIONING_AUTH_UI.loginAccountNotFound.es),
     }
   }
 
+  loginProbeDiagnostics = formatIdentityToolkitProbe(probe.lastSignInResponse(), {
+    corsBlocked: probe.sawIdentityToolkitCorsBlock(),
+    pageOrigin: new URL(page.url()).origin,
+    requestUrlRedacted: probe.lastSignInRequestUrlRedacted(),
+  })
+
   if (message) {
-    return { status: 'login_failed', message }
+    return { status: 'login_failed', message, kind }
   }
 
   if (await hasParentSession(page)) {
@@ -117,6 +333,41 @@ export async function attemptLoginWithCredentials(
   return {
     status: 'login_failed',
     message: message ?? 'Sin sesión ni banner de error reconocible en /login.',
+    kind,
+  }
+}
+
+/** Login en /login con reintentos si Firebase responde red / dominio / no configurado. */
+export async function attemptLoginWithCredentials(
+  page: Page,
+  email: string,
+  password: string
+): Promise<LoginAttemptResult> {
+  let last: LoginAttemptResult = {
+    status: 'login_failed',
+    message: 'Login no ejecutado.',
+    kind: null,
+  }
+
+  await ensureVercelProtectionOnContext(page.context())
+  const probe = startIdentityToolkitSignInProbe(page)
+  try {
+  for (let attempt = 1; attempt <= LOGIN_SUBMIT_RETRIES; attempt++) {
+    last = await attemptLoginOnce(page, email, password, probe)
+    if (last.status !== 'login_failed') {
+      return last
+    }
+    const kind = 'kind' in last ? last.kind : null
+    const message = last.message
+    if (!loginFailureIsRetryable(kind, message) || attempt === LOGIN_SUBMIT_RETRIES) {
+      return last
+    }
+    await page.waitForTimeout(2_000 * attempt)
+  }
+
+  return last
+  } finally {
+    probe.dispose()
   }
 }
 
@@ -240,19 +491,26 @@ export async function hasParentSession(page: Page): Promise<boolean> {
   if (await isAuthGuardLoginWall(page)) return false
   if (/\/login(?:\?|$)/.test(page.url())) return false
 
+  if ((await isOnboardingWelcomeVisible(page)) || isOnboardingRoute(page)) {
+    return !(await isAuthGuardLoginWall(page))
+  }
+
   if (!/dashboard|onboarding/.test(page.url())) {
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(500)
   }
 
+  await waitForPostLoginLoadingShell(page)
+
   if (await isAuthGuardLoginWall(page)) return false
   if (/\/login(?:\?|$)/.test(page.url())) return false
 
-  return page
-    .locator('[data-testid="logout-button"]')
-    .first()
-    .isVisible({ timeout: 12_000 })
-    .catch(() => false)
+  if (await hasOnboardingParentSession(page)) return true
+
+  if (await parentSessionLogoutLocator(page).first().isVisible({ timeout: 8_000 }).catch(() => false)) {
+    return true
+  }
+  return isParentDashboardGreetingVisible(page)
 }
 
 export async function assertAuthenticatedParent(page: Page): Promise<void> {
@@ -264,22 +522,25 @@ export async function assertAuthenticatedParent(page: Page): Promise<void> {
 }
 
 export async function signOutIfSession(page: Page): Promise<void> {
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {})
-  const logout = page
-    .locator('[data-testid="logout-button"]')
-    .or(page.getByRole('button', { name: /Cerrar sesión|Cerrar Sesión|Log out|Sign out/i }))
-  if (await logout.first().isVisible({ timeout: 4_000 }).catch(() => false)) {
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 20_000 }).catch(() => {})
+  await waitForPostLoginLoadingShell(page)
+  const logout = parentSessionLogoutLocator(page)
+  if (await logout.first().isVisible({ timeout: 8_000 }).catch(() => false)) {
     await logout.first().click()
     await page.waitForURL(/login/, { timeout: 25_000 }).catch(() => {})
     return
   }
 
-  await page.goto('/login', { waitUntil: 'domcontentloaded' })
+  if (isOnboardingRoute(page) || (await isOnboardingWelcomeVisible(page))) {
+    await signOutViaOnboardingCancel(page)
+  }
+
+  await page.goto('/login', { waitUntil: 'load' })
 }
 
 /**
  * 1) Login: si hay sesión → listo.
- * 2) Solo si el banner es loginAccountNotFound → registro en /registro.
+ * 2) Si login = cuenta nueva o «correo/contraseña incorrectos» (provisioning) → /registro.
  * 3) Si registro muestra emailInUse → no registrar de nuevo; login.
  */
 export async function ensureProvisionedAccount(
@@ -295,10 +556,24 @@ export async function ensureProvisionedAccount(
   }
 
   if (loginAttempt.status === 'login_failed') {
+    if (
+      messageMeansLoginNetworkError(loginAttempt.message) ||
+      loginAttempt.kind === PROVISIONING_AUTH_ERROR_KIND.network
+    ) {
+      const probe = consumeLastLoginProbeDiagnostics()
+      throw new Error(
+        `Login en QA falló por red/Firebase (${email}): ${loginAttempt.message} ` +
+          `(kind=${loginAttempt.kind ?? 'n/a'}). ${probe} ` +
+          `No es Render: es Firebase/Google Cloud (API key del mismo proyecto que NEXT_PUBLIC_FIREBASE_* en Vercel QA). ` +
+          `GCP → Credentials → API key → HTTP referrers: https://astro-kid-web-qa.vercel.app/* y https://*.vercel.app/* . ` +
+          `Firebase Console → Authentication → Authorized domains: astro-kid-web-qa.vercel.app . ` +
+          `Si el manual “funciona” en otra URL (astrokid.io) pero el test usa QA, son dominios distintos.`
+      )
+    }
     throw new Error(
-      `Login falló sin mensaje de cuenta nueva (${email}): ${loginAttempt.message}. ` +
-        `Revisá contraseña (SMOKE_* / REGISTRO_SUITE_PASSWORD) o verificación de correo. ` +
-        `Para crear cuenta, la UI debe mostrar: ${PROVISIONING_AUTH_UI.loginAccountNotFound.es}`
+      `Login falló sin mensaje de cuenta nueva (${email}): ${loginAttempt.message} ` +
+        `(kind=${loginAttempt.kind ?? 'n/a'}). Revisá contraseña (SMOKE_* / REGISTRO_SUITE_PASSWORD) ` +
+        `o verificación de correo. Para crear cuenta, la UI debe mostrar: ${PROVISIONING_AUTH_UI.loginAccountNotFound.es}`
     )
   }
 

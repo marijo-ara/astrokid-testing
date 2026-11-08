@@ -11,6 +11,8 @@
     "test:accessibility": "playwright test specs/accessibility",
     "test:performance": "playwright test specs/performance",
     "test:provisioning": "playwright test specs/provisioning --grep @provisioning",
+    "test:provisioning:chrome": "playwright test specs/provisioning --grep @provisioning --project=chrome",
+    "test:provisioning:firebase-audit": "playwright test specs/provisioning/firebase-key-smoke.spec.ts",
     "test:all-browsers": "cross-env PLAYWRIGHT_BROWSERS=all playwright test",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",

@@ -6,6 +6,7 @@ import {
   loginMeansAccountNotFound,
   messageMeansAccountNotFound,
   messageMeansEmailAlreadyRegistered,
+  provisioningLoginShouldTryRegistro,
   registroMeansEmailInUse,
 } from './provisioningAuthMessages.ts'
 
@@ -21,6 +22,21 @@ test('detecta mensaje de cuenta inexistente en login', () => {
     loginMeansAccountNotFound('invalid-credentials', PROVISIONING_AUTH_UI.loginInvalidCredentials.es),
     false
   )
+})
+
+test('provisioning: invalid-credentials dispara registro', () => {
+  assert.equal(
+    provisioningLoginShouldTryRegistro(
+      PROVISIONING_AUTH_ERROR_KIND.invalidCredentials,
+      PROVISIONING_AUTH_UI.loginInvalidCredentials.es
+    ),
+    true
+  )
+  assert.equal(
+    provisioningLoginShouldTryRegistro(null, 'Correo o contraseña incorrectos. Si te acabas de registrar'),
+    true
+  )
+  assert.equal(provisioningLoginShouldTryRegistro(null, 'No pudimos conectar con el servidor'), false)
 })
 
 test('detecta mensaje de correo ya registrado', () => {

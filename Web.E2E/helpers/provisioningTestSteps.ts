@@ -4,6 +4,7 @@ import type { SmokeAccount } from './smokeAccount'
 import {
   assertAuthenticatedParent,
   assertDashboardPlan,
+  assertOnboardingWelcomeFirstScreen,
   ensureProvisionedAccount,
   redeemSchoolInviteCode,
   signOutIfSession,
@@ -19,15 +20,16 @@ import {
 export const PROVISIONING_FLOW_TC01 = `
 REG-PROV-01 — Asegurar cuentas (login o registro)
 Precondiciones: PLAYWRIGHT_ENV=qa, REGISTRO_SUITE_PASSWORD, correos SMOKE_* en .env.local.
-Por cada persona (admin → coordinador → familias Free / escolar / premium):
-  1. Cerrar sesión si había otra cuenta.
+Por cada persona (admin → coordinador → familias Free / escolar / premium), en serie:
+  1. Cerrar sesión de la cuenta anterior.
   2. Login en /login:
-     — Sesión OK → logged_in (no ir a /registro).
-     — Banner «No hay una cuenta de AstroKid con este correo…» → ir a /registro y crear cuenta.
-     — Cualquier otro error → fallar (contraseña, correo sin verificar, etc.).
-  3. En /registro: si banner «Ya hay una cuenta de AstroKid con este correo…» → no crear; volver a login.
-  4. Validar sesión de padre (botón cerrar sesión, sin muro AuthGuard).
-Resultado esperado: logged_in o registered por persona; confirm_email → paso manual (verificar correo).
+     — Si entra (dashboard + Salir / ¡Hola, u /onboarding «Así acompaña AstroKid») → logged_in → siguiente persona (sin /registro).
+     — Si «No hay una cuenta…» o «Correo o contraseña incorrectos» (cuenta nueva en Firebase) → /registro.
+     — Otro error → falla el test.
+  3. Solo si hizo falta registro: volver a login y validar sesión.
+  4. Validar destino: onboarding «Así acompaña AstroKid» + Crear el perfil, o dashboard con Salir.
+  5. Siguiente persona (mismo test, describe serial).
+Resultado: logged_in o registered; confirm_email → anotación manual y soft-fail.
 `.trim()
 
 /** Caso REG-PROV-02 */
@@ -66,9 +68,31 @@ export async function stepAssertParentSession(
   page: Page,
   label: string
 ): Promise<void> {
-  await test.step(`Validación: sesión padre (${label}) → logout visible, sin AuthGuard`, async () => {
+  await test.step(`Validación: sesión padre (${label}) → dashboard u onboarding, sin AuthGuard`, async () => {
     await assertAuthenticatedParent(page)
   })
+}
+
+/** REG-PROV-01: sin perfil familiar suele ir a /onboarding — validar la primera pantalla, no el dashboard. */
+export async function stepAssertRegProv01LoginDestination(
+  page: Page,
+  label: string
+): Promise<void> {
+  await test.step(
+    `Validación: ${label} → onboarding «Así acompaña AstroKid» o dashboard (Salir)`,
+    async () => {
+      const onOnboarding = /\/onboarding(?:\?|$)/.test(page.url())
+      const welcome = page.getByRole('heading', {
+        name: /Así acompaña AstroKid|How AstroKid stays with you/i,
+      })
+      const seesWelcome = await welcome.isVisible({ timeout: 5_000 }).catch(() => false)
+      if (onOnboarding || seesWelcome) {
+        await assertOnboardingWelcomeFirstScreen(page)
+        return
+      }
+      await assertAuthenticatedParent(page)
+    }
+  )
 }
 
 export function stepAnnotateConfirmEmail(testInfo: TestInfo, label: string, email: string): void {
@@ -238,7 +262,7 @@ export async function runProvisionPersona(
         .toBe(true)
       return outcome
     }
-    await stepAssertParentSession(page, persona.label)
+    await stepAssertRegProv01LoginDestination(page, persona.label)
     stepAnnotateProvisionOutcome(testInfo, persona.label, outcome)
     return outcome
   })

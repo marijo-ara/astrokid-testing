@@ -1,5 +1,6 @@
 import { chromium, FullConfig, Page } from '@playwright/test';
 import { VERCEL_PASSWORD_STATE } from '../config/vercelProtection';
+import { attachVercelProtectionToContext } from './vercelProtectionHeaders';
 
 /** Unlocks Vercel "Password Protected" with VERCEL_QA_PASSWORD; the cookie is reused by every test. */
 async function unlockVercelPassword(page: Page) {
@@ -21,7 +22,8 @@ async function globalSetup(config: FullConfig) {
   }
 
   const browser = await chromium.launch();
-  const context = await browser.newContext({ extraHTTPHeaders: config.projects[0]?.use?.extraHTTPHeaders });
+  const context = await browser.newContext();
+  await attachVercelProtectionToContext(context, baseURL);
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('console', (msg) => {
@@ -37,7 +39,7 @@ async function globalSetup(config: FullConfig) {
         'Still on Vercel password protection. Use the deployment password from Vercel → Settings → Deployment Protection (VERCEL_QA_PASSWORD), or a valid VERCEL_AUTOMATION_BYPASS_SECRET.'
       );
     }
-    if (process.env.VERCEL_QA_PASSWORD) {
+    if (process.env.VERCEL_QA_PASSWORD || process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
       await context.storageState({ path: VERCEL_PASSWORD_STATE });
     }
     const title = await page.title();

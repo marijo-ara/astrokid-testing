@@ -41,6 +41,7 @@ Todos los alias llegan al mismo buzón Proton (`astrokid.io@proton.me`). En Fire
 | **Registro falló (banner genérico / rate limit)** | Tras varios intentos Firebase puede devolver `too-many-requests` y **no** crear el usuario. Esperá ~30 min o creá los usuarios a mano en Console (misma contraseña que `REGISTRO_SUITE_PASSWORD`) y marcá **correo verificado**. |
 | **«No pudimos contactar a Firebase» en QA** | Si **Dominios autorizados** ya incluyen `astro-kid-web-qa.vercel.app` (como en AstroKid-Preview), el siguiente sospechoso es la **API key** en Google Cloud: Credentials → clave del proyecto `astro-kid` → *Application restrictions* = HTTP referrers con `https://astro-kid-web-qa.vercel.app/*` (y dev si aplica). O restricción de red / rate limit. La suite también intenta login si el usuario ya existe. |
 | **Proton “no recibe” el `+N`** | El correo de verificación llega al buzón `astrokid.io@proton.me`; el usuario en Firebase sigue listado como `astrokid.io+N@proton.me`. |
+| **`API_KEY_HTTP_REFERRER_BLOCKED` en `astro-kid.firebaseapp.com`** | El correo abre `*.firebaseapp.com/__/auth/action` y la **misma** API key del navegador bloquea ese referer. **Solución recomendada (proyecto `astro-kid` QA):** Firebase → Authentication → **Templates** → **Customize action URL** → `https://astro-kid-web-qa.vercel.app/auth/action`. Reenviá el correo de verificación (los enlaces viejos siguen en firebaseapp.com). Alternativa: GCP → Credentials → clave del **snippet Web** de ese proyecto → HTTP referrers: `https://astro-kid.firebaseapp.com/*` (además de QA Vercel). Atajo manual: Console → usuario → marcar correo verificado. |
 
 Prueba manual: en QA `/registro` con `astrokid.io+1@proton.me` (o el tag de tu `.env`). Si en Console aparece ese correo, los `+N` funcionan; si no, revisá red / límite de Firebase antes de culpar a Proton.
 
@@ -113,6 +114,34 @@ Flujo normal:
 | **Cuenta ya existe** | En `/registro`: «Ya hay una cuenta de AstroKid con este correo…» → solo **login** (`provisioningAuthMessages.ts`). En `/login` sin cuenta: «No hay una cuenta de AstroKid con este correo…» → registro. |
 | **Enlaces rotos** | En Firebase Console → Authentication → **Authorized domains** debe estar `astro-kid-web-qa.vercel.app`. |
 
+### Login Playwright: CORS / «No pudimos conectar» solo en automático (no manual)
+
+Causa habitual en **este repo**: `playwright.config` mandaba `x-vercel-protection-bypass` en **todas** las peticiones (también `identitytoolkit.googleapis.com`). El preflight a Google falla por CORS; el navegador manual no lleva esos headers.
+
+**Arreglo en código:** bypass Vercel solo al `baseURL` (`fixtures/vercelProtectionHeaders.ts`); cookie en `.auth/vercel-password.json` vía `global-setup`.
+
+Si tras actualizar el repo sigue fallando, revisá GCP (sección siguiente).
+
+### Login Playwright: CORS / «No pudimos conectar con el servidor» (no es Render)
+
+Si en el **trace de Playwright** ves en consola:
+
+`Access to fetch at 'https://identitytoolkit.googleapis.com/...' from origin 'https://astro-kid-web-qa.vercel.app' has been blocked by CORS policy`
+
+el fallo es **antes** de cualquier llamada al backend en Render: el **navegador** no puede hablar con **Firebase Auth** (Google Identity Toolkit).
+
+| Dónde | Qué hacer |
+| --- | --- |
+| **Google Cloud Console** (mismo proyecto que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` en Vercel QA) → **APIs & Services** → **Credentials** → API key del browser (la de `NEXT_PUBLIC_FIREBASE_API_KEY`) | **Application restrictions** → HTTP referrers → añadir `https://astro-kid-web-qa.vercel.app/*` y `https://*.vercel.app/*`. Sin referrer que coincida, Google no devuelve CORS y la web muestra error de red. |
+| Misma API key | **API restrictions**: *Don't restrict* (recomendado para diagnosticar) o incluir **Identity Toolkit API**. |
+| **Firebase Console** → Authentication → **Settings** → **Authorized domains** | `astro-kid-web-qa.vercel.app` (y el dominio que uses en manual). |
+| **Vercel** → proyecto QA → Environment Variables | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` = `astro-kid` (preview). Si apunta a `astrokid-prod-90c93`, la key de GCP que editaste en **AstroKid-Preview** no es la del build. |
+| **Misma API key** | En DevTools → Network, request `signInWithPassword`: el parámetro `key=` debe ser **la misma** credencial que editaste en GCP. Hay **varias** keys en el proyecto; es el error más común. |
+| **Pestaña API restrictions** (no solo Websites) | Probar **Don't restrict key**. Si restringís APIs: **Identity Toolkit API** y **Token Service API**. Sin eso sigue el CORS aunque el referrer esté bien. |
+| Diagnóstico rápido | `npm run test:provisioning:firebase-audit` → annotation `firebase-key-suffix` con sufijo de la key real del deploy. |
+
+**Por qué manual “sí” y Playwright “no”:** suele ser que el manual fue en **otro origen** (p. ej. `astrokid.io` o `localhost`) con referrers ya permitidos, o con **sesión guardada** (no vuelve a llamar a `signInWithPassword`). En incognito en **la misma URL** `https://astro-kid-web-qa.vercel.app/login` con email/contraseña debe reproducir el mismo CORS si falta el referrer.
+
 En la app, si ya iniciaste sesión pero el backend no tiene JWT: pantalla **Confirma tu correo** con **Reenviar correo** (no cierres la sesión antes de reenviar).
 
 ### Atajo QA (sin esperar el correo)
@@ -133,6 +162,7 @@ No uses este atajo en producción.
 | **Error al crear la cuenta. Inténtalo de nuevo.** | Firebase devolvió un error no mapeado (red, límite, config) o excepción en el cliente; **no** siempre significa “no se creó”. Revisá Firebase Console si el usuario existe. |
 | **¡Bienvenido, Explorador!** en `/dashboard` o `/escuela` | No hay sesión Firebase (no verificado o no logueado). |
 | **Confirma tu correo** | Usuario en Firebase sí existe; falta el enlace. |
+| **No pudimos conectar con el servidor** (login) + consola CORS `identitytoolkit` | API key / referrers / dominio autorizado en **Google Cloud + Firebase**, no Render. Ver sección anterior. |
 
 Casos detallados: [LOGIN_ONBOARDING.md](LOGIN_ONBOARDING.md) (LOGIN-01, LOGIN-03).
 

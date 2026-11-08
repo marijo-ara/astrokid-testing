@@ -11,8 +11,22 @@
  */
 export const PROVISIONING_AUTH_ERROR_KIND = {
   accountNotFound: 'account-not-found',
+  invalidCredentials: 'invalid-credentials',
+  wrongPassword: 'wrong-password',
   emailInUse: 'email-in-use',
+  network: 'network',
+  firebaseNotConfigured: 'firebase-not-configured',
+  siteNotAllowed: 'site-not-allowed',
+  tooManyRequests: 'too-many-requests',
 } as const
+
+/** Errores que a veces son transitorios en QA (reintentar login antes de fallar). */
+export const PROVISIONING_LOGIN_RETRY_KINDS = new Set<string>([
+  PROVISIONING_AUTH_ERROR_KIND.network,
+  PROVISIONING_AUTH_ERROR_KIND.firebaseNotConfigured,
+  PROVISIONING_AUTH_ERROR_KIND.siteNotAllowed,
+  PROVISIONING_AUTH_ERROR_KIND.tooManyRequests,
+])
 
 /** Copias canónicas (ES/EN) — mantener en sync con apps/web/src/lib/i18n/messages.ts */
 export const PROVISIONING_AUTH_UI = {
@@ -23,6 +37,10 @@ export const PROVISIONING_AUTH_UI = {
   loginInvalidCredentials: {
     es: 'Correo o contraseña incorrectos. Si te acabas de registrar, abre el enlace de verificación del correo antes de entrar.',
     en: 'Incorrect email or password. If you just signed up, open the verification link in your email before signing in.',
+  },
+  networkError: {
+    es: 'No pudimos conectar con el servidor. Revisa tu internet o la conexión del dispositivo e inténtalo de nuevo en unos minutos.',
+    en: 'We could not reach the server. Check your internet or device connection and try again in a few minutes.',
   },
   emailAlreadyRegistered: {
     login: {
@@ -69,9 +87,47 @@ export function loginMeansAccountNotFound(kind: string | null | undefined, messa
   return messageMeansAccountNotFound(message)
 }
 
+export function messageMeansLoginInvalidCredentials(text: string | null | undefined): boolean {
+  const value = normalizeBannerText(text)
+  if (!value) return false
+  return (
+    value.includes('Correo o contraseña incorrectos') ||
+    value.includes('Incorrect email or password')
+  )
+}
+
+/**
+ * @provisioning — Firebase a menudo usa invalid-credential (mismo copy que clave incorrecta).
+ * Intentar /registro; si el correo ya existe, registro responde email-in-use y se reintenta login.
+ */
+export function provisioningLoginShouldTryRegistro(
+  kind: string | null | undefined,
+  message: string | null
+): boolean {
+  if (loginMeansAccountNotFound(kind, message)) return true
+  if (kind === PROVISIONING_AUTH_ERROR_KIND.invalidCredentials) return true
+  return messageMeansLoginInvalidCredentials(message)
+}
+
 export function registroMeansEmailInUse(kind: string | null | undefined, message: string | null): boolean {
   if (kind === PROVISIONING_AUTH_ERROR_KIND.emailInUse) return true
   return messageMeansEmailAlreadyRegistered(message)
+}
+
+const NETWORK_NEEDLE = {
+  es: 'No pudimos conectar con el servidor',
+  en: 'We could not reach the server',
+} as const
+
+export function messageMeansLoginNetworkError(text: string | null | undefined): boolean {
+  const value = normalizeBannerText(text)
+  if (!value) return false
+  return value.includes(NETWORK_NEEDLE.es) || value.includes(NETWORK_NEEDLE.en)
+}
+
+export function loginFailureIsRetryable(kind: string | null | undefined, message: string | null): boolean {
+  if (kind && PROVISIONING_LOGIN_RETRY_KINDS.has(kind)) return true
+  return messageMeansLoginNetworkError(message)
 }
 
 export function loginAccountNotFoundLocatorPattern(): RegExp {
