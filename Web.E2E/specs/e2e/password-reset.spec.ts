@@ -1,14 +1,17 @@
 import { test, expect } from '../../fixtures/base';
+import { qaIdentityEmail, qaTitle } from '../../config/qaTestAccounts';
 
 /**
  * Password reset stays on the login page and does not say whether the account exists.
  * Firebase is stubbed so the suite never sends a real reset email.
  */
 
-const RESET_EMAIL = 'parent_reset_test@example.com';
+const RESET_EMAIL = qaIdentityEmail('familia_free');
 
 test.describe('Password reset', () => {
-  test('asks for a reset link without revealing whether the account exists', async ({ page, loginPage }) => {
+  test(
+    qaTitle('familia_free', 'pide enlace de recuperación sin revelar si la cuenta existe'),
+    async ({ page, loginPage }) => {
     await page.route('**/identitytoolkit.googleapis.com/**/accounts:sendOobCode**', async (route) => {
       const body = route.request().postDataJSON() as { email?: string; requestType?: string };
       expect(body.requestType).toBe('PASSWORD_RESET');
@@ -41,7 +44,7 @@ test.describe('Password reset', () => {
     await expect(loginPage.$errorMessage).toHaveCount(0);
   });
 
-  test('a missing Firebase account gets the same confirmation', async ({ page, loginPage }) => {
+  test(qaTitle('familia_free', 'cuenta inexistente recibe la misma confirmación'), async ({ page, loginPage }) => {
     await page.route('**/identitytoolkit.googleapis.com/**/accounts:sendOobCode**', async (route) => {
       await route.fulfill({
         status: 400,
@@ -61,7 +64,7 @@ test.describe('Password reset', () => {
     );
   });
 
-  test('registro opens the reset form', async ({ page }) => {
+  test(qaTitle('familia_free', 'desde registro abre el formulario de recuperación'), async ({ page }) => {
     await page.goto('/registro');
     await page.getByRole('link', { name: /Olvidaste tu contraseña|Forgot your password/i }).click();
     await expect(page).toHaveURL(/\/login\?mode=reset/);

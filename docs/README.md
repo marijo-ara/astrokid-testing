@@ -19,6 +19,7 @@ Las guías de producto, arquitectura y compliance de proveedores siguen en cada 
 | [casos/ESCUELA.md](casos/ESCUELA.md) | Licencia escolar: admin, coordinador, padre |
 | [casos/FAMILY_MAPS_SMOKE.md](casos/FAMILY_MAPS_SMOKE.md) | Smoke ~5 min mapas Empatía / Resiliencia |
 | [casos/HACIENDA_FACTURACION.md](casos/HACIENDA_FACTURACION.md) | Escenarios facturación electrónica (ONVO + Hacienda) |
+| [casos/REGISTRO_USUARIOS_QA.md](casos/REGISTRO_USUARIOS_QA.md) | Aprovisionamiento Proton: coordinador, free, escolar, premium |
 
 ## Auth (OAuth / OIDC)
 

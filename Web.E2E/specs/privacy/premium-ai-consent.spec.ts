@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures/base'
+import { qaTitle } from '../../config/qaTestAccounts'
 import { AI_NOTICE_VERSION, PREMIUM_PARENT } from '../../helpers/aiConsentBackend'
 
 /**
@@ -12,7 +13,9 @@ test.describe('COPPA-18 — Premium y el aviso de IA en el panel', () => {
     await dashboardPage.goto()
   })
 
-  test('Paga Premium y acepta el envío a terceros: la IA se activa sin cargo extra @coppa', async ({
+  test(
+    qaTitle('familia_premium', 'acepta aviso IA: activación Premium sin cargo extra @coppa'),
+    async ({
     dashboardPage,
     premiumAiBackend,
   }) => {
@@ -48,7 +51,7 @@ test.describe('COPPA-18 — Premium y el aviso de IA en el panel', () => {
     })
   })
 
-  test('Paga Premium y no acepta el envío a terceros: la IA sigue apagada @coppa', async ({
+  test(qaTitle('familia_premium', 'sin aceptar aviso IA: Premium queda con IA apagada @coppa'), async ({
     page,
     dashboardPage,
     premiumAiBackend,

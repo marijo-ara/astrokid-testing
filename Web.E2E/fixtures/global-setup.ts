@@ -31,10 +31,17 @@ async function globalSetup(config: FullConfig) {
   try {
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await unlockVercelPassword(page);
+    const $passwordGate = page.getByRole('heading', { name: 'Password Protected' });
+    if (await $passwordGate.isVisible()) {
+      throw new Error(
+        'Still on Vercel password protection. Use the deployment password from Vercel → Settings → Deployment Protection (VERCEL_QA_PASSWORD), or a valid VERCEL_AUTOMATION_BYPASS_SECRET.'
+      );
+    }
     if (process.env.VERCEL_QA_PASSWORD) {
       await context.storageState({ path: VERCEL_PASSWORD_STATE });
     }
-    console.log(`Web under test: ${baseURL} (${await page.title()})`);
+    const title = await page.title();
+    console.log(`Web under test: ${baseURL} (${title})`);
     if (errors.length > 0) {
       console.warn('Console errors on first load:', errors);
     }

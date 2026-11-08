@@ -2,13 +2,14 @@
  * Parent → child adaptive dashboard panels (mocked API).
  */
 import { test, expect } from '../../fixtures/base'
+import { qaTitle } from '../../config/qaTestAccounts'
 
 test.describe('Adaptive parent dashboard — parent/child flow', () => {
   test.beforeEach(async ({ testHelpers }) => {
     await testHelpers.setupTestEnvironment()
   })
 
-  test('shows adaptive profile and pilot metrics when APIs respond', async ({
+  test(qaTitle('familia_free', '[mock API] perfil adaptativo y métricas piloto en panel'), async ({
     page,
     dashboardPage,
     testHelpers,

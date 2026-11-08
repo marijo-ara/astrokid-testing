@@ -13,6 +13,7 @@ tests (Jest) stay in `astro-kid-web`.
 | `specs/privacy` | COPPA checks: no trackers before consent or on child routes, policy text, email-plus link |
 | `specs/accessibility` | WCAG checks (labels, focus, contrast) |
 | `specs/performance` | Core Web Vitals and load budgets |
+| `specs/provisioning` | Asegura cuentas QA (login o registro): admin, coordinador, familias Proton — [`docs/casos/REGISTRO_USUARIOS_QA.md`](../docs/casos/REGISTRO_USUARIOS_QA.md) |
 | `pages`, `fixtures`, `helpers`, `config` | Page objects and shared setup |
 
 ## Run
@@ -27,17 +28,24 @@ npx playwright install --with-deps chromium
 # Against a deployed environment
 $env:PLAYWRIGHT_ENV = "qa"            # localhost | dev | qa | staging | prod
 npm run test:smoke
+npm run test:provisioning   # REGISTRO_SUITE_PASSWORD + SMOKE_ADMIN_*; paso 1 solo asegura cuentas
 
-# Parent, school family, and AstroKid admin. Without these, those three tests skip.
-# Same person can fill parent and school if that family is the school one.
-$env:SMOKE_PARENT_EMAIL = "padre@..."
-$env:SMOKE_PARENT_PASSWORD = "..."
+# Cuentas QA (provisioning Proton). Ver config/qaTestAccounts.ts.
+# Mínimo: REGISTRO_SUITE_PASSWORD tras npm run test:provisioning.
+# Opcional: overrides SMOKE_PARENT_*, SMOKE_SCHOOL_* (familia escolar), SMOKE_ADMIN_*, SMOKE_COORDINATOR_*, SMOKE_PREMIUM_*.
+$env:REGISTRO_SUITE_PASSWORD = "..."
+$env:SMOKE_PARENT_EMAIL = "astrokid.io@proton.me"
+$env:SMOKE_PARENT_PASSWORD = "..."  # mismo que suite si querés ser explícito
 $env:SMOKE_PARENT_PLAN = "free_capped"   # or institutional_capped, premium_unlimited
 $env:SMOKE_SCHOOL_EMAIL = "familia-escolar@..."
 $env:SMOKE_SCHOOL_PASSWORD = "..."
 $env:SMOKE_ADMIN_EMAIL = "admin@..."
 $env:SMOKE_ADMIN_PASSWORD = "..."
 $env:SMOKE_SCHOOL_NAME = "Colegio Norte"
+
+# Login real en QA (parent-login-flow, smoke padre): mismo par que licencia escolar
+$env:SMOKE_PARENT_EMAIL = "padre@..."
+$env:SMOKE_PARENT_PASSWORD = "..."
 
 # Against any URL
 $env:PLAYWRIGHT_BASE_URL = "https://astro-kid-web-qa.vercel.app"

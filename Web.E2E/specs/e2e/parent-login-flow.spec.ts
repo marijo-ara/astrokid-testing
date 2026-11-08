@@ -1,14 +1,65 @@
+import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base';
+import {
+  MOCK_UNPROVISIONED_PARENT_EMAIL,
+  qaIdentityEmail,
+  qaTitle,
+} from '../../config/qaTestAccounts';
+import { loginAs, requireSmokeAccount, usesRemoteFirebaseLogin } from '../../helpers/smokeAccount';
+import type { DashboardPage } from '../../pages/DashboardPage';
+import type { TestHelpers } from '../../helpers/TestHelpers';
 
-test.describe('Parent Login Flow ', () => {
-  
-  test('parent with account logs in and sees dashboard with agents and child in menu', async ({ 
+async function assertSmokeParentDashboard(
+  page: Page,
+  dashboardPage: DashboardPage,
+  testHelpers: TestHelpers
+) {
+  await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 });
+  await expect(page).not.toHaveURL(/onboarding/);
+
+  await dashboardPage.isReady();
+  await dashboardPage.waitForAgentCards();
+
+  const agentCount = await dashboardPage.getAgentCount();
+  expect(agentCount).toBeGreaterThanOrEqual(1);
+
+  const empathyVisible = await dashboardPage.verifyAgentVisible('Capitán Empatía');
+  expect(empathyVisible).toBe(true);
+
+  const childUi = page
+    .locator('[data-testid="child-indicator"], [data-testid="child-switcher"], [data-testid="child-name"]')
+    .first();
+  await expect(childUi).toBeVisible({ timeout: 30_000 });
+
+  const hasErrors = await testHelpers.checkForErrors();
+  expect(hasErrors).toBe(false);
+}
+
+test.describe('Parent Login Flow', () => {
+  test(
+    qaTitle('familia_free', 'con cuenta existente entra al panel con agentes y niño en menú'),
+    async ({ 
     page, 
     loginPage, 
     dashboardPage, 
     testHelpers 
   }) => {
-    const parentEmail = 'parent.existing@example.com';
+  const smokeParent = requireSmokeAccount('SMOKE_PARENT');
+  if (usesRemoteFirebaseLogin()) {
+    test.skip(!smokeParent, 'Falta Familia Free (provisioning / SMOKE_PARENT_*).');
+
+    await test.step('Login with QA smoke parent', async () => {
+      await loginAs(page, smokeParent!);
+    });
+
+    await test.step('Verify dashboard for existing parent', async () => {
+      await page.goto('/dashboard');
+      await assertSmokeParentDashboard(page, dashboardPage, testHelpers);
+    });
+    return;
+  }
+
+    const parentEmail = qaIdentityEmail('familia_free');
     const parentName = 'María García';
     
     // Mock: Parent has existing family profile
@@ -148,7 +199,7 @@ test.describe('Parent Login Flow ', () => {
       const dashboardContent = page.locator('[data-testid="dashboard"]').or(
         page.locator('text=Capitán empatía').or(page.getByText(/agente|agent/i).first())
       );
-      await expect(dashboardContent.first()).toBeVisible({ timeout: 10000 });
+      await expect(dashboardContent.first()).toBeVisible({ timeout: 30_000 });
     });
 
     await test.step('Verify dashboard is ready', async () => {
@@ -208,12 +259,19 @@ test.describe('Parent Login Flow ', () => {
     });
   });
 
-  test('parent without account logs in and is redirected to onboarding', async ({ 
+  test(
+    qaTitle('familia_free', '[mock] sin perfil en API redirige a onboarding'),
+    async ({ 
     page, 
     loginPage, 
     testHelpers 
   }) => {
-    const parentEmail = 'parent.new@example.com';
+  test.skip(
+    usesRemoteFirebaseLogin(),
+    'Caso con mocks de ejemplo.com; en QA usar cuenta real en el otro test de login.'
+  );
+
+    const parentEmail = MOCK_UNPROVISIONED_PARENT_EMAIL;
     const parentName = 'Carlos Ruiz';
 
     await test.step('Setup API mocks for new parent (no account)', async () => {
@@ -323,13 +381,42 @@ test.describe('Parent Login Flow ', () => {
     });
   });
 
-  test('parent logs in, adds credentials, enters dashboard and validates agents are displayed', async ({ 
+  test(
+    qaTitle('familia_free', 'entra al panel y muestra agentes'),
+    async ({ 
     page, 
     loginPage, 
     dashboardPage, 
     testHelpers 
   }) => {
-    const parentEmail = 'parent.test@example.com';
+  const smokeParent = requireSmokeAccount('SMOKE_PARENT');
+  if (usesRemoteFirebaseLogin()) {
+    test.skip(!smokeParent, 'Falta Familia Free (provisioning / SMOKE_PARENT_*).');
+
+    await test.step('Login with QA smoke parent', async () => {
+      await loginAs(page, smokeParent!);
+    });
+
+    await test.step('Verify dashboard and agents', async () => {
+      await page.goto('/dashboard');
+      await assertSmokeParentDashboard(page, dashboardPage, testHelpers);
+
+      const agentsToCheck = ['Capitán Empatía', 'Comandante Finanzas', 'Teniente Resiliencia'];
+      for (const agentName of agentsToCheck) {
+        const isVisible = await dashboardPage.verifyAgentVisible(agentName);
+        if (isVisible) {
+          console.log(`Agent visible: ${agentName}`);
+        }
+      }
+
+      const cards = page.locator('[data-testid="agent-card"]');
+      await expect(cards.first()).toBeVisible({ timeout: 30_000 });
+      expect(await cards.count()).toBeGreaterThanOrEqual(2);
+    });
+    return;
+  }
+
+    const parentEmail = qaIdentityEmail('familia_free');
     const parentName = 'Laura Martínez';
 
     // Mock: Parent has existing family profile

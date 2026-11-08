@@ -63,6 +63,20 @@ test('loadEnvLocal fills missing keys and does not override the shell', () => {
   }
 });
 
+test('loadEnvLocal replaces empty shell values from the file', () => {
+  const file = path.join(os.tmpdir(), `astrokid-env-empty-${process.pid}.env`);
+  fs.writeFileSync(file, 'VERCEL_QA_PASSWORD=file-value\n', 'utf8');
+  const previous = process.env.VERCEL_QA_PASSWORD;
+  process.env.VERCEL_QA_PASSWORD = '';
+  try {
+    loadEnvLocal(file);
+    assert.equal(process.env.VERCEL_QA_PASSWORD, 'file-value');
+  } finally {
+    fs.unlinkSync(file);
+    restore('VERCEL_QA_PASSWORD', previous);
+  }
+});
+
 function restore(key, value) {
   if (value === undefined) delete process.env[key];
   else process.env[key] = value;

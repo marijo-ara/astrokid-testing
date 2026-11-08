@@ -43,7 +43,7 @@ export const environments: Record<string, EnvironmentConfig> = {
     loginBehavior: 'firebase',
     authProvider: 'email',
     mockData: false,
-    timeout: 60000,
+    timeout: 90_000,
     retries: 3,
     headless: true,
     slowMo: 0

@@ -1,8 +1,13 @@
 import { test, expect } from '../../fixtures/base'
+import { qaIdentityEmail, qaTitle } from '../../config/qaTestAccounts'
 
 test.describe('Dev Login Flow - UI', () => {
-  test('stores token and loads dashboard with protected calls', async ({ page, dashboardPage, testHelpers }) => {
-    const parentEmail = 'ui.parent@example.com'
+  test(qaTitle('familia_free', 'sesión mock carga el panel con llamadas protegidas'), async ({
+    page,
+    dashboardPage,
+    testHelpers,
+  }) => {
+    const parentEmail = qaIdentityEmail('familia_free')
     const parentName = 'UI Parent'
     const familyData = {
       id: 'a1b2c3d4-e5f6-4789-a012-3456789abcde',

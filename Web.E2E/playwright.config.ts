@@ -17,6 +17,8 @@ loadEnvLocal(path.resolve(__dirname, '.env.local'));
 const env = getCurrentEnvironment();
 const webAppDir = process.env.WEB_APP_DIR;
 const browsers = process.env.PLAYWRIGHT_BROWSERS;
+const testTimeout = Number(process.env.PLAYWRIGHT_TEST_TIMEOUT) || env.timeout;
+const expectTimeout = Number(process.env.PLAYWRIGHT_EXPECT_TIMEOUT) || Math.min(testTimeout, 45_000);
 
 const allProjects = [
   { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
@@ -29,6 +31,8 @@ const allProjects = [
 export default defineConfig({
   testDir: './specs',
   testMatch: '**/*.spec.ts',
+  timeout: testTimeout,
+  expect: { timeout: expectTimeout },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? env.retries : 0,

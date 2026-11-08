@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import { qaIdentityEmail } from '../config/qaTestAccounts';
 
 /**
  * Stubbed backend for the parent AI-consent card. The real rules run against QA in
@@ -6,7 +7,7 @@ import type { Page, Route } from '@playwright/test';
  */
 
 export const PREMIUM_PARENT = {
-  email: 'ui.premium.parent@example.com',
+  email: qaIdentityEmail('familia_premium'),
   name: 'UI Premium Parent',
   familyId: 'a1b2c3d4-e5f6-4789-a012-3456789abc18',
   parentId: 'c3d4e5f6-a7b8-4901-c234-567890abc018',

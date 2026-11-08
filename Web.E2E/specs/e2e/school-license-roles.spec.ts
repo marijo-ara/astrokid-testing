@@ -1,4 +1,18 @@
 import { test, expect } from '../../fixtures/base'
+import {
+  maskEmailForDesk,
+  qaIdentityEmail,
+  qaTitle,
+} from '../../config/qaTestAccounts'
+
+const QA_EMAIL = {
+  admin: qaIdentityEmail('admin_plataforma'),
+  coordinador: qaIdentityEmail('coordinador_escuela'),
+  familiaEscolar: qaIdentityEmail('familia_escolar'),
+  familiaFree: qaIdentityEmail('familia_free'),
+} as const
+
+const FAMILIA_ESCOLAR_MASKED = maskEmailForDesk(QA_EMAIL.familiaEscolar)
 
 /**
  * Roles de la licencia escolar, caja negra. El mismo correo no cambia de rol
@@ -126,7 +140,7 @@ const activeSchoolDesk = {
           ],
           parent_invites: [
             {
-              email: 'padre.lista@colegio.test',
+              email: QA_EMAIL.familiaEscolar,
               sent: true,
               given_name: 'Ana',
               family_name: 'Campos',
@@ -163,7 +177,7 @@ const schoolOrg = {
   id: 'org-1',
   name: 'Colegio Norte',
   org_type: 'school',
-  contact_email: 'coord@colegio.edu',
+  contact_email: QA_EMAIL.coordinador,
   student_count: 100,
   status: 'active',
   notes: null,
@@ -178,7 +192,7 @@ const schoolOrg = {
       starts_at: null,
       ends_at: null,
       notes: null,
-      activated_by_email: 'admin_test@astrokid.io',
+      activated_by_email: QA_EMAIL.admin,
       payment_status: 'waived',
       payment_reference: 'PILOT-NORTE',
       payment_cleared: true,
@@ -198,8 +212,8 @@ async function seedSession(page: import('@playwright/test').Page, email: string,
 }
 
 test.describe('school license roles', () => {
-  test('parent redeems the school code on /access', async ({ page }) => {
-    await seedSession(page, 'ana@familia.test', 'Ana')
+  test(qaTitle('familia_escolar', 'canjea el código escolar en /access'), async ({ page }) => {
+    await seedSession(page, QA_EMAIL.familiaEscolar, 'Ana')
     await page.route('**/entitlements/me', async (route) => {
       await route.fulfill({
         status: 200,
@@ -251,15 +265,17 @@ test.describe('school license roles', () => {
     await expect(page.getByTestId('mission-quota')).toContainText('hasta 100 por niño (licencia escolar)')
   })
 
-  test('admin registers the school and the coordinator instructions carry the family code', async ({ page }) => {
-    await seedSession(page, 'admin_test@astrokid.io', 'Ops')
+  test(
+    qaTitle(['admin_plataforma', 'coordinador_escuela'], 'registra el colegio y envía acuerdo al coordinador'),
+    async ({ page }) => {
+    await seedSession(page, QA_EMAIL.admin, 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          email: 'admin_test@astrokid.io',
+          email: QA_EMAIL.admin,
           role: 'admin',
           admin_source: 'ADMIN_EMAILS',
         }),
@@ -296,12 +312,12 @@ test.describe('school license roles', () => {
         contact_email?: string
       }
       expect(body.school_name).toBe('Colegio Norte')
-      expect(body.contact_email).toBe('coord@colegio.edu')
+      expect(body.contact_email).toBe(QA_EMAIL.coordinador)
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          organization: { ...schoolOrg, contact_email: 'coord@colegio.edu', status: 'draft' },
+          organization: { ...schoolOrg, contact_email: QA_EMAIL.coordinador, status: 'draft' },
           license: {
             ...schoolOrg.licenses[0],
             status: 'draft',
@@ -327,21 +343,23 @@ test.describe('school license roles', () => {
     await expect(page.getByText('Validación de pago')).toHaveCount(0)
 
     await page.getByLabel('Colegio').fill('Colegio Norte')
-    await page.getByLabel('Correo').fill('coord@colegio.edu')
+    await page.getByLabel('Correo').fill(QA_EMAIL.coordinador)
     await page.getByRole('button', { name: 'Enviar acuerdo para firma y pago' }).click()
 
-    await expect(page.getByText(/Acuerdo en PDF enviado a coord@colegio.edu/)).toBeVisible()
+    await expect(page.getByText(/Acuerdo en PDF enviado/)).toContainText(QA_EMAIL.coordinador)
   })
 
-  test('admin roster lists the student by given name and keeps the parent email masked', async ({ page }) => {
-    await seedSession(page, 'admin_test@astrokid.io', 'Ops')
+  test(
+    qaTitle(['admin_plataforma', 'familia_escolar'], 'lista alumnos y enmascara el correo de la familia escolar'),
+    async ({ page }) => {
+    await seedSession(page, QA_EMAIL.admin, 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          email: 'admin_test@astrokid.io',
+          email: QA_EMAIL.admin,
           role: 'admin',
           admin_source: 'ADMIN_EMAILS',
         }),
@@ -367,7 +385,7 @@ test.describe('school license roles', () => {
           members: [
             {
               family_id: 'fam-1',
-              parent_email: reveal ? 'ana@familia.test' : 'a***@familia.test',
+              parent_email: reveal ? QA_EMAIL.familiaEscolar : FAMILIA_ESCOLAR_MASKED,
               email_revealed: reveal,
               entitlement_status: 'active',
               children: [{ id: 'c1', given_name: 'Vega', age_band: '8–9' }],
@@ -396,22 +414,22 @@ test.describe('school license roles', () => {
     const roster = page.getByTestId('admin-school-students')
     await expect(roster).toContainText('Vega · 8–9')
     await expect(roster).toContainText('1 registrados de 100')
-    await expect(page.getByText('a***@familia.test')).toBeVisible()
-    await expect(page.getByText('ana@familia.test')).toHaveCount(0)
+    await expect(page.getByText(FAMILIA_ESCOLAR_MASKED)).toBeVisible()
+    await expect(page.getByText(QA_EMAIL.familiaEscolar)).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Mostrar correos de esta escuela' }).click()
-    await expect(page.getByText('ana@familia.test')).toBeVisible()
+    await expect(page.getByText(QA_EMAIL.familiaEscolar)).toBeVisible()
   })
 
-  test('coordinator email cannot open the AstroKid admin registry', async ({ page }) => {
-    await seedSession(page, 'coord@colegio.edu', 'Coordinación')
+  test(qaTitle('coordinador_escuela', 'no abre el registro admin de AstroKid'), async ({ page }) => {
+    await seedSession(page, QA_EMAIL.coordinador, 'Coordinación')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           ok: true,
-          email: 'coord@colegio.edu',
+          email: QA_EMAIL.coordinador,
           role: 'parent',
           admin_source: null,
         }),
@@ -427,13 +445,15 @@ test.describe('school license roles', () => {
 
     await page.goto('/admin/licenses', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Admin · licencias' })).toBeVisible()
-    await expect(page.getByText(/coord@colegio.edu/)).toBeVisible()
+    await expect(page.getByText(QA_EMAIL.coordinador)).toBeVisible()
     await expect(page.getByText(/role=admin/)).toBeVisible()
     await expect(page.getByText('Activar un colegio del piloto')).toHaveCount(0)
   })
 
-  test('school contact sees seat counts and the parent list they registered', async ({ page }) => {
-    await seedSession(page, 'coord@colegio.edu', 'Coordinación')
+  test(
+    qaTitle(['coordinador_escuela', 'familia_escolar'], 've cupos y la lista de padres que registró'),
+    async ({ page }) => {
+    await seedSession(page, QA_EMAIL.coordinador, 'Coordinación')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
         status: 200,
@@ -454,7 +474,7 @@ test.describe('school license roles', () => {
       '2 de 5 asientos canjeados. 12 misiones completadas en los últimos 7 días. 3 familias con al menos una misión.'
     )
     await expect(page.getByTestId('school-license-desk')).toBeVisible()
-    await expect(page.getByText('padre.lista@colegio.test')).toBeVisible()
+    await expect(page.getByText(QA_EMAIL.familiaEscolar)).toBeVisible()
     await expect(page.getByText('Código enviado')).toBeVisible()
     await expect(page.getByTestId('school-parent-roster')).toBeVisible()
     await expect(page.getByLabel('Mensaje a enviar')).toHaveValue(/NORTE1/)
@@ -483,12 +503,12 @@ test.describe('school license roles', () => {
     await expect(page.getByTestId('school-family-seats')).toContainText('Licencia escolar')
     await expect(page.getByRole('button', { name: 'Revocar familia' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Regenerar código de la familia' })).toBeVisible()
-    await expect(page.getByText('ana@familia.test')).toHaveCount(0)
+    await expect(page.getByText(QA_EMAIL.familiaEscolar)).toHaveCount(0)
     await expect(page.getByText(/correo de la familia/i)).toHaveCount(0)
   })
 
-  test('a badly formed parent address stays off the list', async ({ page }) => {
-    await seedSession(page, 'coord@colegio.edu', 'Coordinador')
+  test(qaTitle('coordinador_escuela', 'rechaza correos mal formados en la lista de padres'), async ({ page }) => {
+    await seedSession(page, QA_EMAIL.coordinador, 'Coordinador')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
         status: 200,
@@ -516,8 +536,8 @@ test.describe('school license roles', () => {
     await expect(page.getByText('Agrega al menos un correo de padre.')).toBeVisible()
   })
 
-  test('revoking a family seat asks first and posts the family onto Free', async ({ page }) => {
-    await seedSession(page, 'coord@colegio.edu', 'Coordinador')
+  test(qaTitle('coordinador_escuela', 'revoca cupo y devuelve la familia a Free'), async ({ page }) => {
+    await seedSession(page, QA_EMAIL.coordinador, 'Coordinador')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
         status: 200,
@@ -561,7 +581,7 @@ test.describe('school license roles', () => {
     await expect.poll(() => released).toBe(true)
   })
 
-  test('an agreement link without a live token does not open the upload form', async ({ page }) => {
+  test(qaTitle('coordinador_escuela', 'enlace de acuerdo sin token no abre carga'), async ({ page }) => {
     await page.route('**/school-agreements/packet**', async (route) => {
       await route.fulfill({
         status: 404,
@@ -585,8 +605,8 @@ test.describe('school license roles', () => {
     await expect(page.getByRole('button', { name: 'Enviar acuerdo firmado y comprobante' })).toHaveCount(0)
   })
 
-  test('a redeeming parent cannot open the school desk', async ({ page }) => {
-    await seedSession(page, 'ana@familia.test', 'Ana')
+  test(qaTitle('familia_escolar', 'padre con canje no abre el escritorio escolar'), async ({ page }) => {
+    await seedSession(page, QA_EMAIL.familiaEscolar, 'Ana')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
         status: 403,
@@ -605,6 +625,6 @@ test.describe('school license roles', () => {
     await page.goto('/escuela', { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('school-desk-denied')).toBeVisible()
     await expect(page.getByTestId('school-license-desk')).toHaveCount(0)
-    await expect(page.getByText('ana@familia.test')).toHaveCount(0)
+    await expect(page.getByText(QA_EMAIL.familiaEscolar)).toHaveCount(0)
   })
 })

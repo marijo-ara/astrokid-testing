@@ -17,7 +17,9 @@ export function loadEnvLocal(filePath: string): void {
 
     const key = line.slice(0, eq).trim();
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
-    if (process.env[key] !== undefined) continue;
+    // Empty string in the shell blocks .env.local unless we treat "" as unset (common IDE quirk).
+    const existing = process.env[key];
+    if (existing !== undefined && existing !== '') continue;
 
     let value = line.slice(eq + 1).trim();
     const quoted =
