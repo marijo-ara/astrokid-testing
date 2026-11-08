@@ -1,5 +1,6 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { AiConsentCard } from './components/AiConsentCard';
 
 export class DashboardPage extends BasePage {
   // Header elements
@@ -24,6 +25,10 @@ export class DashboardPage extends BasePage {
   
   // Footer
   readonly $footer: Locator;
+
+  // "Cuenta y medición" section and the AI missions card inside it
+  readonly $accountSection: Locator;
+  readonly aiConsentCard: AiConsentCard;
 
   constructor(page: Page) {
     super(page);
@@ -50,6 +55,31 @@ export class DashboardPage extends BasePage {
     
     // Footer
     this.$footer = this.page.locator('[data-testid="footer"]');
+
+    this.$accountSection = this.page.getByTestId('dashboard-section-account');
+    this.aiConsentCard = new AiConsentCard(
+      this.$accountSection.getByTestId('ai-missions-consent-card')
+    );
+  }
+
+  /**
+   * Open a collapsible dashboard section (native <details>) and wait until it is open.
+   */
+  async expandSection($section: Locator) {
+    await expect($section).toBeAttached({ timeout: 20000 });
+    if ((await $section.getAttribute('open')) === null) {
+      await $section.locator('summary').click();
+    }
+    await expect($section).toHaveAttribute('open', '');
+  }
+
+  /**
+   * Show the AI missions card, which lives in the "Cuenta y medición" section.
+   */
+  async openAiConsentCard(): Promise<AiConsentCard> {
+    await this.expandSection(this.$accountSection);
+    await expect(this.aiConsentCard.$root).toBeVisible();
+    return this.aiConsentCard;
   }
 
   /**

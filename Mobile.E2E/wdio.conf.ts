@@ -1,5 +1,5 @@
 import type { WebdriverIOConfig } from '@serenity-js/webdriverio'
-import { androidAppiumServerConfig, androidEmulatorCapabilities } from 'astro-kid-shared/mobile'
+import { appiumServer as androidAppiumServerConfig, androidChromeCapabilities as androidEmulatorCapabilities } from './config/android'
 export const config: WebdriverIOConfig = {
     //
     // ====================
@@ -28,7 +28,7 @@ export const config: WebdriverIOConfig = {
     // of the config file unless it's absolute.
     //
     specs: [
-        './features/**/*.feature'
+        './features/todo-list/**/*.feature'
     ],
     // Patterns to exclude.
     exclude: [

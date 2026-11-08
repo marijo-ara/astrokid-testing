@@ -19,7 +19,7 @@ Los tests están organizados por módulos de la API:
 - **MissionFlow**: Test E2E del happy path móvil vía API
 - **Expression**: Perfil expression + `familyMapAnswers` (mapas familiares)
 - **Safety**: `/safety-events` (historial, active-lock, acknowledge)
-- **Licenses**: contrato Free de una familia nueva (`/entitlements/me`, `journey-access`, arco Free). Las reglas de escuela/revocación viven en el backend.
+- **Licenses**: contrato Free de una familia nueva (`/entitlements/me`, `journey-access`, arco Free). School desk y piloto: 401 sin sesión y 403 si el padre no es contacto ni admin. Las reglas de escuela/revocación viven en el backend.
 
 ## Configuración
 

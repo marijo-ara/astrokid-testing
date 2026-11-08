@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -18,7 +21,7 @@ namespace API.Tests.Coppa
     [Category("Coppa")]
     public class CoppaTests : BaseApiTest
     {
-        private const string AiNoticeVersion = "2026-10-03";
+        private const string AiNoticeVersion = "2026-10-15";
 
         private static object ChildPayload(string email) => new
         {
@@ -240,6 +243,222 @@ namespace API.Tests.Coppa
 
             AssertSuccessStatusCode(response, $"revoke: {response.StatusCode} {response.Content}");
             Assert.That((await AiConsentAsync(family)).GetProperty("active").GetBoolean(), Is.False);
+        }
+
+        // ---- Premium paid by card verifies the parent; disclosure still needs the notice box (COPPA-18, COPPA-19) ----
+
+        private static readonly string[] PlatformAiReasons =
+        {
+            "ai_disabled", "provider_contract_pending", "provider_zero_retention_pending"
+        };
+
+        private static bool PipelineRequiresTheStripeSecret()
+        {
+            var ci = Environment.GetEnvironmentVariable("CI");
+            var azure = Environment.GetEnvironmentVariable("TF_BUILD");
+            return string.Equals(ci, "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(azure, "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string StripeWebhookSecret()
+        {
+            var secret = Environment.GetEnvironmentVariable("QA_STRIPE_WEBHOOK_SECRET");
+            if (!string.IsNullOrWhiteSpace(secret))
+            {
+                return secret.Trim();
+            }
+
+            const string message =
+                "Define QA_STRIPE_WEBHOOK_SECRET con el STRIPE_WEBHOOK_SECRET del backend QA (modo test).";
+            if (PipelineRequiresTheStripeSecret())
+            {
+                Assert.Fail(message);
+            }
+
+            Assert.Inconclusive(message);
+            return "";
+        }
+
+        private async Task SendSignedStripeEventAsync(object stripeEvent)
+        {
+            var secret = StripeWebhookSecret();
+            var json = JsonSerializer.Serialize(stripeEvent);
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+            var signature = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes($"{timestamp}.{json}"))).ToLowerInvariant();
+
+            var response = await Client.PostRawJsonAsync("/billing/stripe/webhook", json,
+                new Dictionary<string, string> { ["Stripe-Signature"] = $"t={timestamp},v1={signature}" });
+
+            AssertSuccessStatusCode(response, $"webhook: {response.StatusCode} {response.Content}");
+        }
+
+        /// <summary>Same event Stripe sends when Premium checkout is paid by card.</summary>
+        private async Task<string> PayPremiumByCardAsync(ConsentedFamily family)
+        {
+            var subscriptionId = $"sub_qa_{Guid.NewGuid():N}";
+            await SendSignedStripeEventAsync(new
+            {
+                id = $"evt_qa_{Guid.NewGuid():N}",
+                type = "checkout.session.completed",
+                data = new
+                {
+                    @object = new
+                    {
+                        id = $"cs_qa_{Guid.NewGuid():N}",
+                        mode = "subscription",
+                        payment_status = "paid",
+                        customer = $"cus_qa_{Guid.NewGuid():N}",
+                        subscription = subscriptionId,
+                        client_reference_id = family.FamilyId,
+                        metadata = new Dictionary<string, string>
+                        {
+                            ["product"] = "astrokid_premium",
+                            ["family_id"] = family.FamilyId,
+                            ["parent_email"] = family.ParentEmail,
+                            ["billing_interval"] = "month",
+                            ["upgrade_from"] = "free"
+                        }
+                    }
+                }
+            });
+            return subscriptionId;
+        }
+
+        private Task CancelPremiumAsync(ConsentedFamily family, string subscriptionId) =>
+            SendSignedStripeEventAsync(new
+            {
+                id = $"evt_qa_{Guid.NewGuid():N}",
+                type = "customer.subscription.deleted",
+                data = new
+                {
+                    @object = new
+                    {
+                        id = subscriptionId,
+                        status = "canceled",
+                        metadata = new Dictionary<string, string>
+                        {
+                            ["product"] = "astrokid_premium",
+                            ["family_id"] = family.FamilyId
+                        }
+                    }
+                }
+            });
+
+        private Task<RestResponse> PremiumActivateAsync(ConsentedFamily family, string noticeVersion, bool accepted) =>
+            Client.PostAsync($"/ai-consent/children/{family.ChildId}/premium-activate", new
+            {
+                locale = "es",
+                notice_version = noticeVersion,
+                accepted
+            }, family.ParentToken);
+
+        /// <summary>Free family, AI providers ready on QA: the only thing missing is the plan.</summary>
+        private async Task<ConsentedFamily> FreeFamilyReadyForAiAsync(string label)
+        {
+            var family = await CreateConsentedFamilyAsync(label);
+            var status = await AiConsentAsync(family);
+            var reason = status.GetProperty("unavailable_reason").GetString();
+            if (Array.IndexOf(PlatformAiReasons, reason) >= 0)
+            {
+                Assert.Inconclusive($"IA apagada en este entorno ({reason}). En QA: AI_PROVIDER_DPA_ACCEPTED=true, AI_PROVIDER_ZDR_APPROVED=true, XAI_CHILD_MODEL y la IA generativa encendida.");
+            }
+            Assert.That(status.GetProperty("plan").GetString(), Is.EqualTo("free"));
+            Assert.That(reason, Is.EqualTo("plan_free"), "Free nunca tiene IA");
+            Assert.That(status.GetProperty("active").GetBoolean(), Is.False);
+            return family;
+        }
+
+        private async Task<JsonElement> PremiumStatusAfterPaymentAsync(ConsentedFamily family)
+        {
+            var status = await AiConsentAsync(family);
+            Assert.That(status.GetProperty("plan").GetString(), Is.EqualTo("premium"));
+            Assert.That(status.GetProperty("verification").GetString(), Is.EqualTo("premium_subscription"),
+                "El pago de Premium con tarjeta es la verificación; no pide el cargo de US$0.50");
+            Assert.That(status.GetProperty("available").GetBoolean(), Is.True, status.ToString());
+            Assert.That(status.GetProperty("active").GetBoolean(), Is.False, "Pagar no enciende la IA sin el aviso aceptado");
+            Assert.That(status.GetProperty("status").GetString(), Is.EqualTo("off"));
+            return status;
+        }
+
+        [Test]
+        public async Task COPPA_18_Premium_Paid_By_Card_And_Notice_Accepted_Turns_Ai_On()
+        {
+            var family = await FreeFamilyReadyForAiAsync("coppa-premium-yes");
+
+            await PayPremiumByCardAsync(family);
+            var status = await PremiumStatusAfterPaymentAsync(family);
+            var noticeVersion = status.GetProperty("notice").GetProperty("version").GetString()!;
+
+            var response = await PremiumActivateAsync(family, noticeVersion, accepted: true);
+
+            AssertSuccessStatusCode(response, $"premium-activate: {response.StatusCode} {response.Content}");
+            var after = await AiConsentAsync(family);
+            Assert.That(after.GetProperty("active").GetBoolean(), Is.True);
+            Assert.That(after.GetProperty("status").GetString(), Is.EqualTo("active"));
+            Assert.That(after.GetProperty("activated_at").GetString(), Is.Not.Null.And.Not.Empty);
+            Assert.That(after.GetProperty("refunded").GetBoolean(), Is.False, "Sin cargo de verificación no hay reembolso");
+        }
+
+        [Test]
+        public async Task COPPA_18_Premium_Paid_By_Card_Without_Accepting_The_Notice_Keeps_Ai_Off()
+        {
+            var family = await FreeFamilyReadyForAiAsync("coppa-premium-no");
+
+            await PayPremiumByCardAsync(family);
+            var status = await PremiumStatusAfterPaymentAsync(family);
+            var noticeVersion = status.GetProperty("notice").GetProperty("version").GetString()!;
+
+            var response = await PremiumActivateAsync(family, noticeVersion, accepted: false);
+
+            AssertDetail(response, HttpStatusCode.BadRequest, "AI_NOTICE_NOT_ACCEPTED");
+            var after = await AiConsentAsync(family);
+            Assert.That(after.GetProperty("active").GetBoolean(), Is.False);
+            Assert.That(after.GetProperty("status").GetString(), Is.EqualTo("off"));
+            Assert.That(after.GetProperty("plan").GetString(), Is.EqualTo("premium"), "Rechazar la IA no quita Premium");
+        }
+
+        [Test]
+        public async Task COPPA_18_Premium_Activation_With_An_Old_Notice_Is_Rejected()
+        {
+            var family = await FreeFamilyReadyForAiAsync("coppa-premium-old");
+            await PayPremiumByCardAsync(family);
+            await PremiumStatusAfterPaymentAsync(family);
+
+            var response = await PremiumActivateAsync(family, "2020-01-01", accepted: true);
+
+            AssertDetail(response, HttpStatusCode.Conflict, "AI_NOTICE_OUTDATED");
+            Assert.That((await AiConsentAsync(family)).GetProperty("active").GetBoolean(), Is.False);
+        }
+
+        [Test]
+        public async Task COPPA_18_Free_Plan_Cannot_Turn_Ai_On_Even_With_The_Notice_Accepted()
+        {
+            var family = await FreeFamilyReadyForAiAsync("coppa-free-yes");
+            var noticeVersion = (await AiConsentAsync(family)).GetProperty("notice").GetProperty("version").GetString()!;
+
+            var response = await PremiumActivateAsync(family, noticeVersion, accepted: true);
+
+            AssertDetail(response, HttpStatusCode.Conflict, "AI_CONSENT_UNAVAILABLE:plan_free");
+            Assert.That((await AiConsentAsync(family)).GetProperty("active").GetBoolean(), Is.False);
+        }
+
+        [Test]
+        public async Task COPPA_19_Ai_Turns_Off_When_Premium_Ends()
+        {
+            var family = await FreeFamilyReadyForAiAsync("coppa-premium-ends");
+            var subscriptionId = await PayPremiumByCardAsync(family);
+            var status = await PremiumStatusAfterPaymentAsync(family);
+            var noticeVersion = status.GetProperty("notice").GetProperty("version").GetString()!;
+            AssertSuccessStatusCode(await PremiumActivateAsync(family, noticeVersion, accepted: true));
+            Assert.That((await AiConsentAsync(family)).GetProperty("active").GetBoolean(), Is.True);
+
+            await CancelPremiumAsync(family, subscriptionId);
+
+            var after = await AiConsentAsync(family);
+            Assert.That(after.GetProperty("active").GetBoolean(), Is.False);
+            Assert.That(after.GetProperty("status").GetString(), Is.EqualTo("ended"));
+            Assert.That(after.GetProperty("plan").GetString(), Is.EqualTo("free"));
         }
 
         // ---- No disclosure without consent (COPPA-09, COPPA-10) ----

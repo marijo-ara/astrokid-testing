@@ -1,0 +1,22 @@
+---
+description: No apagar consentimiento, seguridad infantil, voz, medición ni la sesión del padre
+alwaysApply: true
+---
+
+# Los controles no se apagan
+
+Antes de tocar autenticación, consentimiento, IA, voz, medición, retención o el alta por país, deja el control cerrado.
+
+## No enciendas estas banderas
+
+No pongas en `true`, ni en código ni en un ejemplo de producción: `GENERATIVE_AI_ENABLED`, `CHILD_VOICE_TO_PROCESSORS`, `NEXT_PUBLIC_MEASUREMENT_VENDORS_ASSURED`, `AI_PROVIDER_DPA_ACCEPTED`.
+
+No quites `child_ai_allowed`, la clasificación de `services/safety/`, `store=false`, la respuesta fija en riesgo alto o crítico, el segundo correo del padre, ni el rechazo de `household_country` distinto de `CR`.
+
+## Toda ruta nueva falla cerrada
+
+Una ruta de padre o de niño exige sesión y comprueba que el padre es el dueño del perfil. Si falta el secreto o la sesión, responde 401 o 403. No abras `CORS` con `*`. No dejes un atajo de depuración en el camino de producción.
+
+Si tocas el código del niño, guarda solo el hash, como ya se hace con el enlace de consentimiento. No agregues una búsqueda por el código en claro sin decirlo.
+
+El puntaje, la emoción y los puntos de una misión no se redactan como diagnóstico, terapia ni resultado garantizado.

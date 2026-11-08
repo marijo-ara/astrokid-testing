@@ -1,0 +1,22 @@
+---
+description: No versionar ni registrar datos personales del padre o del niño
+alwaysApply: true
+---
+
+# Datos mínimos
+
+Antes de crear, editar o preparar un commit, revisa si el cambio guarda datos de una persona.
+
+## Fuera de git
+
+No versiones perfiles de familia, wallets, códigos de niño, correos, nombres, fechas de nacimiento, audio, texto libre ni IP. `data/*` en `.gitignore` no saca del índice un JSON que ya esté en `git ls-files`. Si aparece, para y dilo. No lo copies a otro archivo.
+
+Los catálogos sin personas pueden quedarse. Un fixture usa identificadores sintéticos (`child_test_1`), nunca un código o un correo real.
+
+## Fuera de logs y de terceros
+
+No escribas en logs, errores, analytics, snapshots ni mensajes de commit el correo del padre, el nombre del niño, un token, un código de niño ni la IP.
+
+Una llamada nueva a xAI, Azure, PostHog, Stripe o Resend tiene que nombrar qué dato sale y qué bandera la mantiene apagada. No mandes nombre, correo, edad ni identificador del niño a medición o a un modelo.
+
+En el cliente, no agregues caché en claro del perfil del niño en `localStorage`. Si el dato se queda en el dispositivo, va cifrado, o no se guarda.

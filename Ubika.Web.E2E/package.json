@@ -1,0 +1,17 @@
+{
+  "name": "ubika-web-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Caja negra Playwright de la web Ubika (pirámide: punta UI)",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test specs/smoke",
+    "test:security": "playwright test specs/security",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

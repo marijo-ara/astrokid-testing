@@ -17,6 +17,20 @@ variables:
   # Web.E2E (Playwright TS) and the astrokid-auth OAuth browser flow
   PLAYWRIGHT_BASE_URL: '$(PLAYWRIGHT_BASE_URL)'
   AUTH_BASE_URL: '$(AUTH_BASE_URL)'
+  # Set in the variable group. COPPA-18/19 fail the job when this is empty on the agent.
+  QA_STRIPE_WEBHOOK_SECRET: '$(QA_STRIPE_WEBHOOK_SECRET)'
+  VERCEL_QA_PASSWORD: '$(VERCEL_QA_PASSWORD)'
+  VERCEL_AUTOMATION_BYPASS_SECRET: '$(VERCEL_AUTOMATION_BYPASS_SECRET)'
+  SMOKE_PARENT_EMAIL: '$(SMOKE_PARENT_EMAIL)'
+  SMOKE_PARENT_PASSWORD: '$(SMOKE_PARENT_PASSWORD)'
+  SMOKE_PARENT_PLAN: '$(SMOKE_PARENT_PLAN)'
+  SMOKE_SCHOOL_EMAIL: '$(SMOKE_SCHOOL_EMAIL)'
+  SMOKE_SCHOOL_PASSWORD: '$(SMOKE_SCHOOL_PASSWORD)'
+  SMOKE_ADMIN_EMAIL: '$(SMOKE_ADMIN_EMAIL)'
+  SMOKE_ADMIN_PASSWORD: '$(SMOKE_ADMIN_PASSWORD)'
+  SMOKE_SCHOOL_NAME: '$(SMOKE_SCHOOL_NAME)'
+  UBIKA_API_BASE_URL: '$(UBIKA_API_BASE_URL)'
+  UBIKA_WEB_BASE_URL: '$(UBIKA_WEB_BASE_URL)'
 
 jobs:
 - job: BuildAndTest
@@ -108,6 +122,8 @@ jobs:
       env:
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
         ASTROKID_ENV: '$(ASTROKID_ENV)'
+        QA_STRIPE_WEBHOOK_SECRET: '$(QA_STRIPE_WEBHOOK_SECRET)'
+        CI: 'true'
       continueOnError: false
 
     # Full API product suite — excludes NUnit Learning tutorials
@@ -129,6 +145,25 @@ jobs:
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
         ASTROKID_ENV: '$(ASTROKID_ENV)'
         ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+        QA_STRIPE_WEBHOOK_SECRET: '$(QA_STRIPE_WEBHOOK_SECRET)'
+        CI: 'true'
+      continueOnError: false
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Ubika API'
+      condition: ne(variables['UBIKA_API_BASE_URL'], '')
+      inputs:
+        command: 'test'
+        projects: 'Ubika.API.Tests/Ubika.API.Tests.csproj'
+        arguments: >
+          --configuration $(buildConfiguration)
+          --no-build
+          --logger trx
+          --results-directory $(Agent.TempDirectory)/TestResults
+        publishTestResults: true
+        testRunTitle: 'Ubika API'
+      env:
+        UBIKA_API_BASE_URL: '$(UBIKA_API_BASE_URL)'
       continueOnError: false
 
     - task: DotNetCoreCLI@2
@@ -210,8 +245,17 @@ jobs:
         PLAYWRIGHT_BASE_URL: '$(PLAYWRIGHT_BASE_URL)'
         ASTROKID_BASE_URL: '$(ASTROKID_BASE_URL)'
         VERCEL_AUTOMATION_BYPASS_SECRET: '$(VERCEL_AUTOMATION_BYPASS_SECRET)'
+        VERCEL_QA_PASSWORD: '$(VERCEL_QA_PASSWORD)'
         ASTROKID_UI_EMAIL: '$(ASTROKID_UI_EMAIL)'
         ASTROKID_UI_PASSWORD: '$(ASTROKID_UI_PASSWORD)'
+        SMOKE_PARENT_EMAIL: '$(SMOKE_PARENT_EMAIL)'
+        SMOKE_PARENT_PASSWORD: '$(SMOKE_PARENT_PASSWORD)'
+        SMOKE_PARENT_PLAN: '$(SMOKE_PARENT_PLAN)'
+        SMOKE_SCHOOL_EMAIL: '$(SMOKE_SCHOOL_EMAIL)'
+        SMOKE_SCHOOL_PASSWORD: '$(SMOKE_SCHOOL_PASSWORD)'
+        SMOKE_ADMIN_EMAIL: '$(SMOKE_ADMIN_EMAIL)'
+        SMOKE_ADMIN_PASSWORD: '$(SMOKE_ADMIN_PASSWORD)'
+        SMOKE_SCHOOL_NAME: '$(SMOKE_SCHOOL_NAME)'
 
     - script: npx playwright test specs/e2e specs/accessibility specs/performance
       displayName: 'Web E2E + accesibilidad + performance'
@@ -234,3 +278,32 @@ jobs:
         testResultsFormat: 'JUnit'
         testResultsFiles: 'Web.E2E/reports/junit-*.xml'
         testRunTitle: 'AstroKid Web E2E'
+
+- job: UbikaWebE2E
+  displayName: 'Ubika Web E2E'
+  condition: ne(variables['UBIKA_WEB_BASE_URL'], '')
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+    - checkout: self
+
+    - task: NodeTool@0
+      displayName: 'Instalar Node 20'
+      inputs:
+        versionSpec: '20.x'
+
+    - script: npm ci || npm install
+      displayName: 'Instalar dependencias'
+      workingDirectory: Ubika.Web.E2E
+
+    - script: npx playwright install --with-deps chromium
+      displayName: 'Instalar Chromium'
+      workingDirectory: Ubika.Web.E2E
+
+    - script: npm test
+      displayName: 'Ubika smoke y puertas'
+      workingDirectory: Ubika.Web.E2E
+      env:
+        CI: 'true'
+        UBIKA_WEB_BASE_URL: '$(UBIKA_WEB_BASE_URL)'
+        VERCEL_AUTOMATION_BYPASS_SECRET: '$(VERCEL_AUTOMATION_BYPASS_SECRET)'

@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "API.Tests", "API.Tests\API.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UI.Tests", "UI.Tests\UI.Tests.csproj", "{024E302C-E18A-47B4-8653-E1317EDD5C31}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ubika.API.Tests", "Ubika.API.Tests\Ubika.API.Tests.csproj", "{4D315516-9746-47DF-8873-6CDD874EE246}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,6 +59,18 @@ Global
 		{024E302C-E18A-47B4-8653-E1317EDD5C31}.Release|x64.Build.0 = Release|Any CPU
 		{024E302C-E18A-47B4-8653-E1317EDD5C31}.Release|x86.ActiveCfg = Release|Any CPU
 		{024E302C-E18A-47B4-8653-E1317EDD5C31}.Release|x86.Build.0 = Release|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Debug|x64.Build.0 = Debug|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Debug|x86.Build.0 = Debug|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Release|x64.ActiveCfg = Release|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Release|x64.Build.0 = Release|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Release|x86.ActiveCfg = Release|Any CPU
+		{4D315516-9746-47DF-8873-6CDD874EE246}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

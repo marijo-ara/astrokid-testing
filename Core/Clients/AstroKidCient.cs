@@ -106,5 +106,26 @@ namespace Core.Clients
 
             return await _client.ExecuteAsync(request);
         }
+
+        /// <summary>
+        /// POST with the body sent byte for byte, for callers that sign the payload (Stripe webhooks).
+        /// </summary>
+        public async Task<RestResponse> PostRawJsonAsync(
+            string endpoint,
+            string json,
+            IDictionary<string, string>? headers = null)
+        {
+            var request = new RestRequest(endpoint, Method.Post);
+            request.AddStringBody(json, ContentType.Json);
+            if (headers != null)
+            {
+                foreach (var (name, value) in headers)
+                {
+                    request.AddHeader(name, value);
+                }
+            }
+
+            return await _client.ExecuteAsync(request);
+        }
     }
 }

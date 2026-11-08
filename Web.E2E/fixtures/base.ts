@@ -3,12 +3,15 @@ import { LandingPage } from '../pages/LandingPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { LoginPage } from '../pages/LoginPage';
 import { TestHelpers } from '../helpers/TestHelpers';
+import { mockAiConsentBackend, seedPremiumParent, type AiConsentBackend } from '../helpers/aiConsentBackend';
 
 type MyFixtures = {
   landingPage: LandingPage;
   dashboardPage: DashboardPage;
   loginPage: LoginPage;
   testHelpers: TestHelpers;
+  /** Parent on Premium paid by card, with the /ai-consent API stubbed and recorded. */
+  premiumAiBackend: AiConsentBackend;
 };
 
 export const test = base.extend<MyFixtures>({
@@ -30,6 +33,11 @@ export const test = base.extend<MyFixtures>({
   testHelpers: async ({ page }, use) => {
     const testHelpers = new TestHelpers(page);
     await use(testHelpers);
+  },
+
+  premiumAiBackend: async ({ page }, use) => {
+    await seedPremiumParent(page);
+    await use(await mockAiConsentBackend(page));
   },
 });
 

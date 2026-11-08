@@ -1,5 +1,10 @@
+import path from 'path';
 import { defineConfig, devices } from '@playwright/test';
 import { getCurrentEnvironment } from './config/environments';
+import { loadEnvLocal } from './config/load-env-local';
+import { VERCEL_PASSWORD_STATE } from './config/vercelProtection';
+
+loadEnvLocal(path.resolve(__dirname, '.env.local'));
 
 /**
  * Black-box suite for the AstroKid web app.
@@ -41,6 +46,7 @@ export default defineConfig({
           'x-vercel-set-bypass-cookie': 'samesitenone',
         }
       : {},
+    storageState: process.env.VERCEL_QA_PASSWORD ? VERCEL_PASSWORD_STATE : undefined,
     actionTimeout: env.timeout,
     navigationTimeout: env.timeout,
     trace: 'on-first-retry',

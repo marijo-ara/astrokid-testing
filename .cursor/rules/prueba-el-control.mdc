@@ -1,0 +1,20 @@
+---
+description: Un cambio de seguridad incluye la prueba que falla si el control desaparece
+alwaysApply: true
+---
+
+# Prueba el control
+
+Si el cambio toca autenticación, consentimiento, seguridad, retención, privacidad o secretos, la misma entrega incluye una prueba. Sin esa prueba, el cambio no está listo.
+
+## Qué tiene que fallar
+
+La prueba falla si alguien quita el control. Comprueba el camino negativo: 401 o 403, el modelo no se llama, la voz responde 403, el payload no lleva nombre ni correo, y la bandera nace apagada.
+
+Prueba el control de AstroKid. El proveedor externo se sustituye por un doble. No sustituyas la compuerta por un mock que siempre deja pasar.
+
+## Datos de la prueba
+
+Usa llaves falsas (`sk-test`, un `TOKEN_SECRET` de prueba de al menos 32 caracteres). No leas `.env`, Render ni el historial de git para armar un test.
+
+No borres, no marques `skip` y no aflojes una prueba de seguridad que falla para dejar el build en verde. Arregla el control o explica el fallo y para.

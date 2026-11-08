@@ -52,5 +52,26 @@ namespace API.Tests.Licenses
                 Is.EqualTo(HttpStatusCode.Unauthorized).Or.EqualTo(HttpStatusCode.Forbidden)
             );
         }
+
+        [Test]
+        public async Task Unknown_Packet_Link_Does_Not_Open_An_Upload()
+        {
+            var packet = await Client.GetAsync("/school-agreements/packet?token=falso");
+            AssumeBackendAvailable(packet);
+            Assert.That(packet.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(packet.Content ?? "", Does.Contain("Upload link not found"));
+            Assert.That(packet.Content ?? "", Does.Not.Contain("@"));
+        }
+
+        [Test]
+        public async Task Packet_Without_A_Payment_Reference_Is_Rejected()
+        {
+            var submit = await Client.PostAsync(
+                "/school-agreements/packet",
+                new { token = "falso-token-de-prueba" }
+            );
+            AssumeBackendAvailable(submit);
+            Assert.That(submit.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+        }
     }
 }

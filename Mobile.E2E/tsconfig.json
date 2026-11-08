@@ -27,6 +27,8 @@
     "include": [
         "features/**/*.ts",
         "serenity/**/*.ts",
-        "wdio.conf.ts"
+        "config/**/*.ts",
+        "wdio.conf.ts",
+        "wdio.app.conf.ts"
     ]
 }

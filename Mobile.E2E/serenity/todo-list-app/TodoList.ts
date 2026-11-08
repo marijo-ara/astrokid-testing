@@ -2,7 +2,7 @@ import { contain, Ensure, equals, includes, isGreaterThan } from '@serenity-js/a
 import { type Answerable, Check, d, type QuestionAdapter, Task, Wait } from '@serenity-js/core'
 import { By, Enter, ExecuteScript, isVisible, Key, Navigate, Page, PageElement, PageElements, Press, Text } from '@serenity-js/web'
 
-import { mobileTestBaseUrl } from 'astro-kid-shared/mobile'
+import { mobileTestBaseUrl } from '../../config/android'
 import { TodoListItem } from './TodoListItem'
 
 export class TodoList {

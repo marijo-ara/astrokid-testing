@@ -1,0 +1,28 @@
+---
+description: Los secretos locales van en .env.local y git nunca los versiona
+alwaysApply: true
+---
+
+# .env.local no se sube
+
+`Web.E2E/.env.local` es el único sitio local para `VERCEL_QA_PASSWORD`, `VERCEL_AUTOMATION_BYPASS_SECRET` y las cuentas de smoke. Playwright lo carga al arrancar. Una variable ya definida en la terminal gana sobre el archivo.
+
+## Qué hacer
+
+- Deja el archivo en `.gitignore` (`.env.local` y `.env.*.local`).
+- Escribe solo nombres de variable. El valor lo pega el usuario en su máquina.
+- Si falta la clave de QA, dilo. No la busques en Azure, Vercel, Render ni en el historial de git.
+
+## Qué no hacer
+
+- No pongas el valor en código, docs, tests, CI, logs, commits ni en el chat.
+- No hagas `git add -f` de `.env.local`.
+- No crees otro archivo versionado con la misma contraseña.
+
+```env
+# BIEN — valor vacío; el usuario lo completa en su disco
+VERCEL_QA_PASSWORD=
+
+# MAL — secreto real en cualquier archivo que git pueda guardar
+VERCEL_QA_PASSWORD=la-clave-de-qa
+```
