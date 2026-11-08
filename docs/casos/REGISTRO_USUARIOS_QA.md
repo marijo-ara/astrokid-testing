@@ -6,7 +6,15 @@ Cada test adjunta el flujo **REG-PROV-01 / REG-PROV-02** (annotation `flow`) y l
 
 ## Objetivo
 
-**Paso 1 — `asegurar cuentas`:** para cada identidad, **login primero**; si falla, **registro** en `/registro` y login. Si el login ya funciona, **no** se registra de nuevo.
+**Paso 1 — `asegurar cuentas`:** igual que la web (`firebaseAuthErrors.ts` + banners):
+
+| Paso | Condición en UI | Acción provisioning |
+| --- | --- | --- |
+| Login | `data-auth-error-kind="account-not-found"` o texto `loginAccountNotFound` (+ CTA `login-failure-register`) | Ir a `/registro` |
+| Login | `invalid-credentials` / `loginInvalidCredentials` u otro | **No** registrar (revisar contraseña o verificación) |
+| Registro | `data-auth-error-kind="email-in-use"` o texto `registro.emailInUse` (+ `email-in-use-actions`) | **No** crear; solo login |
+
+Copy y kinds: `Web.E2E/config/provisioningAuthMessages.ts`. Atributo `data-auth-error-kind` en `astro-kid-web` (`login-error-message`, `registro-error-message`).
 
 Así las demás suites (`SMOKE_PARENT_*`, `SMOKE_ADMIN_*`, etc.) pueden apuntar a las mismas cuentas en `.env.local`.
 
@@ -102,7 +110,7 @@ Flujo normal:
 | **Spam / filtros Proton** | Buscar `firebase`, `noreply`, o el destinatario `astrokid.io+1@…` en todo el buzón. |
 | **Demora** | Firebase a veces tarda 5–15 min; no hagas muchos “Reenviar” seguidos. |
 | **Demasiados intentos** | Tras muchos registros, Firebase responde `too-many-requests`; esperá ~15–30 min. |
-| **Cuenta ya existe** | En registro debería decir «Este email ya está registrado»; usá **login** en `/login`, no otro registro. |
+| **Cuenta ya existe** | En `/registro`: «Ya hay una cuenta de AstroKid con este correo…» → solo **login** (`provisioningAuthMessages.ts`). En `/login` sin cuenta: «No hay una cuenta de AstroKid con este correo…» → registro. |
 | **Enlaces rotos** | En Firebase Console → Authentication → **Authorized domains** debe estar `astro-kid-web-qa.vercel.app`. |
 
 En la app, si ya iniciaste sesión pero el backend no tiene JWT: pantalla **Confirma tu correo** con **Reenviar correo** (no cierres la sesión antes de reenviar).

@@ -21,8 +21,12 @@ REG-PROV-01 — Asegurar cuentas (login o registro)
 Precondiciones: PLAYWRIGHT_ENV=qa, REGISTRO_SUITE_PASSWORD, correos SMOKE_* en .env.local.
 Por cada persona (admin → coordinador → familias Free / escolar / premium):
   1. Cerrar sesión si había otra cuenta.
-  2. Intentar login en /login; si falla → registro en /registro con la misma contraseña.
-  3. Validar sesión de padre (botón cerrar sesión, sin muro AuthGuard).
+  2. Login en /login:
+     — Sesión OK → logged_in (no ir a /registro).
+     — Banner «No hay una cuenta de AstroKid con este correo…» → ir a /registro y crear cuenta.
+     — Cualquier otro error → fallar (contraseña, correo sin verificar, etc.).
+  3. En /registro: si banner «Ya hay una cuenta de AstroKid con este correo…» → no crear; volver a login.
+  4. Validar sesión de padre (botón cerrar sesión, sin muro AuthGuard).
 Resultado esperado: logged_in o registered por persona; confirm_email → paso manual (verificar correo).
 `.trim()
 
@@ -53,7 +57,7 @@ export async function stepEnsureAccount(
   password: string
 ): Promise<EnsureAccountOutcome> {
   return test.step(
-    `Acción: login o registro (${email}) → Esperado: logged_in | registered | confirm_email`,
+    `Acción: login (mensaje cuenta nueva) o registro (mensaje correo en uso) (${email}) → logged_in | registered | confirm_email`,
     async () => ensureProvisionedAccount(page, email, password)
   )
 }

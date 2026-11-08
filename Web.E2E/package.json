@@ -16,7 +16,8 @@
     "report": "playwright show-report",
     "install:browsers": "playwright install --with-deps chromium",
     "typecheck": "tsc --noEmit",
-    "test:env-local": "node --experimental-strip-types --test config/load-env-local.test.mjs"
+    "test:env-local": "node --experimental-strip-types --test config/load-env-local.test.mjs",
+    "test:provisioning-messages": "node --experimental-strip-types --test config/provisioningAuthMessages.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
