@@ -19,6 +19,13 @@ export async function submitSchoolAgreementForm(
   input: SendSchoolAgreementInput
 ): Promise<void> {
   await page.goto('/admin/licenses')
+  const appCrashed = page.getByText(/Application error: a client-side exception/i)
+  if (await appCrashed.isVisible().catch(() => false)) {
+    throw new Error(
+      '/admin/licenses crasheó en QA (error de cliente). Suele ser deploy viejo con schoolAgreementAdmin ' +
+        '(.casefold no existe en JS). Actualizá astro-kid-web-qa (MR licencias escolares) y volvé a correr.'
+    )
+  }
   await expect(page.getByRole('heading', { name: 'Activar licencia escolar' })).toBeVisible({
     timeout: 30_000,
   })
