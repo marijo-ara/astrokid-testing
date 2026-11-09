@@ -13,12 +13,17 @@ export type SendSchoolAgreementInput = {
   students?: string
 }
 
-/** Formulario «Agregar padre» de la licencia activa de esta corrida (evita 2+ colegios en QA). */
-function coordinatorParentListForm(page: Page) {
+/** Tarjeta de licencia del colegio creado en esta corrida (varias licencias en QA). */
+export function coordinatorLicenseCardForProvisioningRun(page: Page) {
   const desk = page.getByTestId('school-license-desk')
   const schoolName = resolveProvisioningSchoolName()
-  const card = desk.getByTestId('school-license-card').filter({ hasText: schoolName })
-  return card.first().getByTestId('school-parent-list')
+  const schoolArticle = desk.locator('article').filter({ hasText: schoolName })
+  return schoolArticle.getByTestId('school-license-card').first()
+}
+
+/** Formulario «Agregar padre» de la licencia activa de esta corrida (evita 2+ colegios en QA). */
+function coordinatorParentListForm(page: Page) {
+  return coordinatorLicenseCardForProvisioningRun(page).getByTestId('school-parent-list')
 }
 
 /** ESCUELA.md A.1–A.4: formulario en /admin/licenses (sesión admin ya abierta). */
