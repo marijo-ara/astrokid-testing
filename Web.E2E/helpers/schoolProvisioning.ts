@@ -13,6 +13,14 @@ export type SendSchoolAgreementInput = {
   students?: string
 }
 
+/** Formulario «Agregar padre» de la licencia activa de esta corrida (evita 2+ colegios en QA). */
+function coordinatorParentListForm(page: Page) {
+  const desk = page.getByTestId('school-license-desk')
+  const schoolName = resolveProvisioningSchoolName()
+  const card = desk.getByTestId('school-license-card').filter({ hasText: schoolName })
+  return card.first().getByTestId('school-parent-list')
+}
+
 /** ESCUELA.md A.1–A.4: formulario en /admin/licenses (sesión admin ya abierta). */
 export async function submitSchoolAgreementForm(
   page: Page,
@@ -90,25 +98,26 @@ export async function coordinatorRegisterParentEmail(
   const desk = page.getByTestId('school-license-desk')
   await expect(desk).toBeVisible({ timeout: 20_000 })
 
-  const nombre = desk.getByLabel(/Nombre|Given name/i).first()
-  const apellidos = desk.getByLabel(/Apellidos|Family name/i).first()
-  const correo = desk.locator('input[type="email"]').first()
+  const addForm = coordinatorParentListForm(page)
+  await expect(addForm).toBeVisible({ timeout: 15_000 })
 
-  await nombre.fill(givenName)
-  await apellidos.fill(familyName)
-  await correo.fill(parentEmail)
-  await desk.getByRole('button', { name: /Agregar padre|Add parent/i }).click()
+  await addForm.getByLabel(/Nombre|Given name/i).fill(givenName)
+  await addForm.getByLabel(/Apellidos|Family name/i).fill(familyName)
+  await addForm.locator('input[type="email"]').fill(parentEmail)
+  await addForm.getByRole('button', { name: /Agregar padre|Add parent/i }).click()
 
-  await expect(page.getByTestId('school-parent-pending')).toContainText(parentEmail, {
+  await expect(addForm.getByTestId('school-parent-pending')).toContainText(parentEmail, {
     timeout: 15_000,
   })
 }
 
 /** Tras agregar padres pendientes, envía el correo con el código de canje. */
 export async function coordinatorEmailSchoolInviteToParents(page: Page): Promise<void> {
-  const desk = page.getByTestId('school-license-desk')
-  await expect(desk).toBeVisible({ timeout: 20_000 })
-  const send = desk.getByRole('button', { name: /Enviar el código a estos padres|Email the code to these parents/i })
+  const addForm = coordinatorParentListForm(page)
+  await expect(addForm).toBeVisible({ timeout: 20_000 })
+  const send = addForm.getByRole('button', {
+    name: /Enviar el código a estos padres|Email the code to these parents/i,
+  })
   await expect(send).toBeEnabled({ timeout: 10_000 })
   await send.click()
   await expect(page.getByTestId('school-parent-notice')).toBeVisible({ timeout: 90_000 })
