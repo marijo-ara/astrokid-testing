@@ -22,6 +22,8 @@ Servicio: **astro-kid-backend-1** (`srv-d85r9r3tqb8s73fegu1g`).
 2. **Environment** → **Add** → clave `SCHOOL_AGREEMENT_QA_COORDINATOR_LINK`, valor `1`.
 3. **Save Changes** → esperar redeploy **Live** (unos minutos).
 
+**Deploy del código:** `astro-kid-backend-1` suele seguir la rama **`qa`** de GitLab (no solo `main`). Si el test devuelve **404** en `qa-coordinator-upload-link`, el API QA aún no tiene el endpoint: mergeá `main` → `qa` (MR en GitLab) y esperá el deploy.
+
 **No** hace falta `SCHOOL_AGREEMENT_EXPOSE_UPLOAD_URL` en `send-agreement` (opcional legacy).
 
 **No** uses `SCHOOL_AGREEMENT_QA_COORDINATOR_LINK=1` en producción.

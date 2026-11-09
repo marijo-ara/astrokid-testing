@@ -25,6 +25,7 @@ import {
   requireSchoolPacketToken,
   submitCoordinatorSchoolPacket,
 } from './coordinatorSchoolPacket'
+import { consumeSchoolPacketCaptureFailure } from './schoolPacketCapture'
 import { hasResolvableSchoolPacketLink } from './schoolPacketTokenStore'
 import { resolveProvisioningAdmin, resolveProvisioningEmail, PROVISIONING_ROLES } from '../config/provisioningUsers'
 
@@ -190,9 +191,17 @@ export async function stepAdminCreateSchoolAgreement(page: Page, testInfo: TestI
       }
       await stepAssertParentSession(page, 'Admin plataforma')
       await submitSchoolAgreementForm(page, input)
+      const captureDetail = consumeSchoolPacketCaptureFailure()
       expect(
         hasResolvableSchoolPacketLink(),
-        'Sin enlace de coordinador: Render QA con SCHOOL_AGREEMENT_QA_COORDINATOR_LINK=1 (send-agreement no devuelve URL; ver docs/casos/RENDER_QA_ESCUELA_E2E.md).'
+        [
+          'Sin enlace de coordinador tras enviar acuerdo.',
+          captureDetail,
+          'Render astro-kid-backend-1: deploy de main con el endpoint nuevo + SCHOOL_AGREEMENT_QA_COORDINATOR_LINK=1.',
+          'Ver docs/casos/RENDER_QA_ESCUELA_E2E.md.',
+        ]
+          .filter(Boolean)
+          .join(' ')
       ).toBe(true)
     }
   )
