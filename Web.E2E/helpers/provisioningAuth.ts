@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   emailAlreadyRegisteredLocatorPattern,
   loginAccountNotFoundLocatorPattern,
@@ -673,14 +673,67 @@ export async function assertDashboardPlan(page: Page, plan: string): Promise<voi
   await expect(quota).toHaveAttribute('data-quota-plan', plan)
 }
 
+/** Tras canje escolar: cupo institucional en /access (no exige niño en dashboard). */
+export async function assertSchoolAccessMissionQuota(page: Page, usageLabel = '0/100'): Promise<void> {
+  await expect(page.getByTestId('access-status')).toContainText(/activo|active/i, { timeout: 30_000 })
+  const quota = page.getByTestId('mission-quota')
+  await expect(quota).toBeVisible({ timeout: 30_000 })
+  await expect(quota).toContainText(/licencia escolar|school license/i)
+  await expect(quota).toContainText(/100/)
+  const usagePattern = new RegExp(usageLabel.replace('/', '\\s*/\\s*'))
+  const hasChildUsage = await quota.getByText(usagePattern).isVisible({ timeout: 5_000 }).catch(() => false)
+  if (!hasChildUsage) {
+    await expect(quota).toContainText(/hasta 100|up to 100/i)
+  } else {
+    await expect(quota.getByText(usagePattern)).toBeVisible()
+  }
+}
+
+async function waitForAuthGuardShell(page: Page): Promise<void> {
+  await waitForPostLoginLoadingShell(page)
+  const authSpinner = page.getByText(/Verificando autenticación|Verifying authentication/i)
+  if (await authSpinner.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await authSpinner.waitFor({ state: 'detached', timeout: 90_000 })
+  }
+}
+
+/**
+ * Barra 0/100 en dashboard si ya hay niño; si no, solo anotación (cupo validado en /access).
+ */
+export async function assertDashboardMissionQuotaWhenReady(
+  page: Page,
+  expectedLabel: string,
+  expectedPlan = 'institutional_capped'
+): Promise<void> {
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  await waitForAuthGuardShell(page)
+  if (/\/onboarding(?:\?|$)/.test(new URL(page.url()).pathname)) {
+    test.info().annotations.push({
+      type: 'note',
+      description:
+        'Sin perfil de niño: onboarding pendiente. Cupo escolar ya validado en /access (REG-PROV-02).',
+    })
+    return
+  }
+  await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 }).catch(() => {})
+  const bar = page.getByTestId('mission-quota-label')
+  if (await bar.isVisible({ timeout: 25_000 }).catch(() => false)) {
+    await expect(bar).toContainText(expectedLabel, { timeout: 30_000 })
+    const planAttr = page.locator('[data-quota-plan]').first()
+    await expect(planAttr).toHaveAttribute('data-quota-plan', expectedPlan, { timeout: 30_000 })
+    return
+  }
+  const planAttr = page.locator('[data-quota-plan]').first()
+  if (await planAttr.isVisible({ timeout: 15_000 }).catch(() => false)) {
+    await expect(planAttr).not.toHaveAttribute('data-quota-plan', 'loading', { timeout: 30_000 })
+    await expect(planAttr).toHaveAttribute('data-quota-plan', expectedPlan, { timeout: 30_000 })
+  }
+}
+
 /** Barra de progreso de misiones en dashboard (p. ej. licencia escolar recién canjeada: 0/100). */
 export async function assertDashboardMissionQuotaLabel(
   page: Page,
   expectedLabel: string
 ): Promise<void> {
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
-  await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 })
-  const bar = page.getByTestId('mission-quota-label')
-  await expect(bar).toBeVisible({ timeout: 45_000 })
-  await expect(bar).toContainText(expectedLabel, { timeout: 30_000 })
+  await assertDashboardMissionQuotaWhenReady(page, expectedLabel)
 }

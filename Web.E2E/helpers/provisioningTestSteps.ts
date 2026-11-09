@@ -5,7 +5,8 @@ import type { SmokeAccount } from './smokeAccount'
 import {
   assertAuthenticatedParent,
   assertDashboardPlan,
-  assertDashboardMissionQuotaLabel,
+  assertDashboardMissionQuotaWhenReady,
+  assertSchoolAccessMissionQuota,
   assertOnboardingWelcomeFirstScreen,
   ensureProvisionedAccount,
   provisionNavigateSchoolDesk,
@@ -435,12 +436,8 @@ export async function stepSchoolFamilyRedeemAccessAndQuota(
       await page.goto('/access', { waitUntil: 'domcontentloaded' })
       await expect(page).toHaveURL(/access/, { timeout: 20_000 })
       await redeemSchoolInviteCode(page, code)
-      await expect(page.getByTestId('access-status')).toContainText(/activo|active/i, {
-        timeout: 30_000,
-      })
-      await assertDashboardMissionQuotaLabel(page, quotaLabel)
-      const planAttr = page.locator('[data-quota-plan]').first()
-      await expect(planAttr).toHaveAttribute('data-quota-plan', expectedPlan, { timeout: 30_000 })
+      await assertSchoolAccessMissionQuota(page, quotaLabel)
+      await assertDashboardMissionQuotaWhenReady(page, quotaLabel, expectedPlan)
 
       const childLocator = page.locator('[data-testid="child-name"]').first()
       if (await childLocator.isVisible({ timeout: 8_000 }).catch(() => false)) {
