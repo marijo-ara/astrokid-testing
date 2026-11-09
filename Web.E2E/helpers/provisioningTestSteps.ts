@@ -185,6 +185,10 @@ export async function stepAdminCreateSchoolAgreement(page: Page, testInfo: TestI
     families: process.env.REGISTRO_SCHOOL_FAMILIES?.trim() || '2',
     students: process.env.REGISTRO_SCHOOL_STUDENTS?.trim() || '2',
   }
+  testInfo.annotations.push({
+    type: 'provisioning',
+    description: `Colegio (corrida): ${input.schoolName} · Coordinador: ${coordinatorEmail}`,
+  })
 
   await test.step(
     `Acción: crear escuela «${input.schoolName}» → Esperado: acuerdo enviado y estado Pendiente`,

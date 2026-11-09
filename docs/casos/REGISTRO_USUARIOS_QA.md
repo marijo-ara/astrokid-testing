@@ -6,6 +6,7 @@ Suites Playwright (`@provisioning`), orden en la UI por prefijo `01-provisioning
 | --- | --- | --- |
 | 01 | Diagnóstico Firebase | `Web.E2E/specs/01-provisioning/01-firebase-key-smoke.spec.ts` |
 | 02 | Activar licencia escolar | `Web.E2E/specs/01-provisioning/02-activar-licencia-escolar.spec.ts` — **8 pruebas en serie**: admin, acuerdo, coordinador, activación, familia en `/access` (0/100), cierre en `/escuela` |
+| 02b | Reglas nombre / 409 | `Web.E2E/specs/01-provisioning/02-activar-licencia-escolar-reglas.spec.ts` — sin QA (timestamp único, clave de nombre, mensajes `send-agreement`) |
 | 03 | Familia Free | `Web.E2E/specs/01-provisioning/04-familia-free.spec.ts` |
 | 04 | Familia escolar | `Web.E2E/specs/01-provisioning/05-familia-escolar.spec.ts` |
 | 05 | Familia Premium | `Web.E2E/specs/01-provisioning/06-familia-premium.spec.ts` |
@@ -67,7 +68,10 @@ Prueba manual: en QA `/registro` con `astrokid.io+1@proton.me` (o el tag de tu `
 | `REGISTRO_*_EMAIL` | Opcional: sobrescribe el correo por rol (`REGISTRO_FREE_EMAIL`, `REGISTRO_PREMIUM_EMAIL`, etc.). |
 | `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD` | Admin QA (login/registro en paso 1; envía acuerdo en paso 2). |
 | `REGISTRO_ADMIN_EMAIL` | Opcional: admin solo con `REGISTRO_SUITE_PASSWORD` si no usás `SMOKE_ADMIN_*`. |
-| `REGISTRO_SCHOOL_NAME` o `SMOKE_SCHOOL_NAME` | Nombre del colegio (default: `Colegio Proton QA`). |
+| `REGISTRO_SCHOOL_NAME` o `SMOKE_SCHOOL_NAME` | Base del nombre (default: `Colegio Proton QA`). Cada corrida añade **timestamp ISO** → mismo coordinador, otro colegio (evita 409). |
+| `REGISTRO_ESCUELA_FIXED_SCHOOL=1` | Nombre fijo sin timestamp (solo si limpiás QA o debug). |
+| `REGISTRO_ESCUELA_REUSE_CACHED_SCHOOL=1` | Reutilizar `.cache/school-provisioning-name.txt` al reanudar la misma corrida (default: nombre nuevo cada `playwright test`). |
+| `REGISTRO_SCHOOL_NAME_SUFFIX` | Sufijo fijo en lugar del timestamp (p. ej. `run-local-3`). |
 | `REGISTRO_SCHOOL_FAMILIES` / `REGISTRO_SCHOOL_STUDENTS` | Cupos (default `2` / `2`). |
 | `REGISTRO_ESCUELA_SEND_AGREEMENT` | `0` desactiva el envío automático del acuerdo. |
 | `REGISTRO_ESCUELA_REGISTER_PARENT` | `0` evita que el coordinador agregue `REGISTRO_ESCOLAR_EMAIL` en `/escuela`. |
@@ -76,7 +80,7 @@ Prueba manual: en QA `/registro` con `astrokid.io+1@proton.me` (o el tag de tu `
 
 ## Flujo escuela (automatizado + manual)
 
-1. **Admin** (si hay `SMOKE_ADMIN_*`): `/admin/licenses` → **Enviar acuerdo** al `SMOKE_COORDINATOR_EMAIL`.
+1. **Admin** (si hay `SMOKE_ADMIN_*`): `/admin/licenses` → **Enviar acuerdo** al `SMOKE_COORDINATOR_EMAIL` con nombre `«base» + timestamp` (anotación `Colegio (corrida): …` en Playwright).
 2. **Manual**: coordinador sube documentos; admin **Aprobar y activar** ([ESCUELA.md](ESCUELA.md) B–C).
 3. **Coordinador** (cuenta registrada): si la licencia está activa, agrega `SMOKE_SCHOOL_EMAIL` a la lista y envía código.
 4. **Familia escolar**: canje en `/access` con `REGISTRO_SCHOOL_INVITE_CODE`.
