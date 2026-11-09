@@ -519,6 +519,38 @@ export async function stepCoordinatorAssertRedeemedSchoolFamily(
   )
 }
 
+/** QA: enlace del correo escolar y salida de onboarding con otra cuenta. */
+export async function stepAssertSchoolAccessDeepLink(
+  page: Page,
+  code: string
+): Promise<void> {
+  const normalized = code.trim().toUpperCase()
+  await test.step(
+    `Acción: /access?code=${normalized} → Esperado: invite precargado y barra de sesión`,
+    async () => {
+      await page.goto(`/access?code=${encodeURIComponent(code.trim())}`, {
+        waitUntil: 'domcontentloaded',
+      })
+      await expect(page).toHaveURL(/\/access/, { timeout: 20_000 })
+      await expect(page.locator('#invite-code')).toHaveValue(normalized, { timeout: 15_000 })
+      await expect(page.getByTestId('auth-session-bar')).toBeVisible()
+    }
+  )
+}
+
+export async function stepAssertOnboardingSchoolAccessExit(page: Page): Promise<void> {
+  await test.step(
+    'Acción: /onboarding → Esperado: banner «colegio» y botón «Usar otra cuenta»',
+    async () => {
+      await page.goto('/onboarding', { waitUntil: 'domcontentloaded' })
+      await expect(page.getByTestId('onboarding-school-license-banner')).toBeVisible({
+        timeout: 20_000,
+      })
+      await expect(page.getByTestId('auth-use-another-account')).toBeVisible()
+    }
+  )
+}
+
 export async function stepRedeemSchoolInviteIfConfigured(
   page: Page,
   schoolCode: string | undefined
