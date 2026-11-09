@@ -87,7 +87,6 @@ export async function coordinatorRegisterParentEmail(
   givenName: string,
   familyName: string
 ): Promise<void> {
-  await page.goto('/escuela')
   const desk = page.getByTestId('school-license-desk')
   await expect(desk).toBeVisible({ timeout: 20_000 })
 

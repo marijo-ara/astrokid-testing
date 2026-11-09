@@ -190,6 +190,35 @@ async function waitForPostLoginShellSettled(page: Page): Promise<void> {
   )
 }
 
+/**
+ * Coordinador escolar (sin hijo en familia): abre el escritorio sin completar onboarding.
+ * Misma navegación que el paso del paquete (`domcontentloaded`) y bandera local de bienvenida vista.
+ */
+export async function provisionNavigateSchoolDesk(
+  page: Page,
+  options?: { coordinatorEmail?: string }
+): Promise<void> {
+  const email = options?.coordinatorEmail?.trim()
+  if (email) {
+    await page.evaluate((raw) => {
+      const key = `parentEducationSeen:${raw.trim().toLowerCase()}`
+      localStorage.setItem(key, 'true')
+    }, email)
+  }
+  await page.goto('/escuela', { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  if (/\/onboarding/.test(new URL(page.url()).pathname)) {
+    await page.goto('/escuela', { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  }
+  await expect(page).toHaveURL(/\/escuela(?:\?|$)/, { timeout: 30_000 })
+  const stuckOnboarding =
+    /\/onboarding/.test(new URL(page.url()).pathname) &&
+    (await isOnboardingWelcomeVisible(page))
+  expect(
+    stuckOnboarding,
+    'Coordinador sigue en onboarding tras /escuela. Revisá sesión (correo verificado) o errores family-profiles en consola.'
+  ).toBe(false)
+}
+
 /** REG-PROV-01: primera tarjeta educativa antes del wizard del niño. */
 export async function assertOnboardingWelcomeFirstScreen(page: Page): Promise<void> {
   if (!(await isOnboardingWelcomeVisible(page))) {

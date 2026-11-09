@@ -22,6 +22,7 @@ import {
   runProvisionPersona,
   stepAnnotateConfirmEmail,
   stepAssertParentSession,
+  stepAssertRegProv01LoginDestination,
   stepAdminActivateSchoolLicense,
   stepAdminCreateSchoolAgreement,
   stepCoordinatorAssertRedeemedSchoolFamily,
@@ -140,8 +141,10 @@ test.describe('Activar Licencia Escolar @provisioning', () => {
         return
       }
 
-      await stepAssertParentSession(page, coordinatorRole.label)
-      await stepCoordinatorRegisterSchoolFamily(page, coordinatorRole.label, schoolParentEmail)
+      await stepAssertRegProv01LoginDestination(page, coordinatorRole.label)
+      await stepCoordinatorRegisterSchoolFamily(page, coordinatorRole.label, schoolParentEmail, {
+        coordinatorEmail: email,
+      })
     }
   )
 

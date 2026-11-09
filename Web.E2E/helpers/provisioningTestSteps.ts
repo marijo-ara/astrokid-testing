@@ -8,6 +8,7 @@ import {
   assertDashboardMissionQuotaLabel,
   assertOnboardingWelcomeFirstScreen,
   ensureProvisionedAccount,
+  provisionNavigateSchoolDesk,
   redeemSchoolInviteCode,
   signOutIfSession,
   type EnsureAccountOutcome,
@@ -309,12 +310,14 @@ export async function stepCoordinatorRegisterSchoolFamily(
   page: Page,
   coordinatorLabel: string,
   schoolParentEmail: string,
-  options: { sendInvite?: boolean } = {}
+  options: { sendInvite?: boolean; coordinatorEmail?: string } = {}
 ): Promise<void> {
   await test.step(
     'Acción: /escuela con licencia activa → Esperado: escritorio school-license-desk',
     async () => {
-      await page.goto('/escuela')
+      const coordinatorEmail =
+        options.coordinatorEmail?.trim() || resolveProvisioningEmail(coordinatorRole)
+      await provisionNavigateSchoolDesk(page, { coordinatorEmail })
       await expect(
         page.getByRole('heading', { name: /Guía de alineación|School alignment/i })
       ).toBeVisible({ timeout: 25_000 })
@@ -362,7 +365,7 @@ export async function stepCoordinatorEscuelaDesk(
   await test.step(
     'Acción: abrir /escuela → Esperado: heading Guía de alineación / School alignment',
     async () => {
-      await page.goto('/escuela')
+      await provisionNavigateSchoolDesk(page)
       await expect(
         page.getByRole('heading', { name: /Guía de alineación|School alignment/i })
       ).toBeVisible({ timeout: 20_000 })
@@ -461,7 +464,7 @@ export async function stepCoordinatorAssertRedeemedSchoolFamily(
   await test.step(
     `Acción: /escuela (${coordinatorLabel}) → Esperado: familia activa y niño «${childGiven}»`,
     async () => {
-      await page.goto('/escuela', { waitUntil: 'domcontentloaded' })
+      await provisionNavigateSchoolDesk(page)
       await expect(
         page.getByRole('heading', { name: /Guía de alineación|School alignment/i })
       ).toBeVisible({ timeout: 25_000 })
