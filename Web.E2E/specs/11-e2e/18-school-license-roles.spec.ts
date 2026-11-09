@@ -3,7 +3,9 @@ import {
   maskEmailForDesk,
   qaIdentityEmail,
   qaTitle,
+  type QaRoleId,
 } from '../../config/qaTestAccounts'
+import { annotateQaActors } from '../../helpers/qaActorAnnotations'
 
 const QA_EMAIL = {
   admin: qaIdentityEmail('admin_plataforma'),
@@ -211,8 +213,13 @@ async function seedSession(page: import('@playwright/test').Page, email: string,
   )
 }
 
-test.describe('school license roles', () => {
-  test(qaTitle('familia_escolar', 'canjea el código escolar en /access'), async ({ page }) => {
+function markMockActor(testInfo: import('@playwright/test').TestInfo, actor: QaRoleId | QaRoleId[]) {
+  annotateQaActors(testInfo, actor, 'mock_api')
+}
+
+test.describe('18 — E2E: school license roles', () => {
+  test(qaTitle('familia_escolar', 'canjea el código escolar en /access'), async ({ page }, testInfo) => {
+    markMockActor(testInfo, 'familia_escolar')
     await seedSession(page, QA_EMAIL.familiaEscolar, 'Ana')
     await page.route('**/entitlements/me', async (route) => {
       await route.fulfill({
@@ -267,7 +274,8 @@ test.describe('school license roles', () => {
 
   test(
     qaTitle(['admin_plataforma', 'coordinador_escuela'], 'registra el colegio y envía acuerdo al coordinador'),
-    async ({ page }) => {
+    async ({ page }, testInfo) => {
+    markMockActor(testInfo, ['admin_plataforma', 'coordinador_escuela'])
     await seedSession(page, QA_EMAIL.admin, 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
@@ -351,7 +359,8 @@ test.describe('school license roles', () => {
 
   test(
     qaTitle(['admin_plataforma', 'familia_escolar'], 'lista alumnos y enmascara el correo de la familia escolar'),
-    async ({ page }) => {
+    async ({ page }, testInfo) => {
+    markMockActor(testInfo, ['admin_plataforma', 'familia_escolar'])
     await seedSession(page, QA_EMAIL.admin, 'Ops')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
@@ -421,7 +430,8 @@ test.describe('school license roles', () => {
     await expect(page.getByText(QA_EMAIL.familiaEscolar)).toBeVisible()
   })
 
-  test(qaTitle('coordinador_escuela', 'no abre el registro admin de AstroKid'), async ({ page }) => {
+  test(qaTitle('coordinador_escuela', 'no abre el registro admin de AstroKid'), async ({ page }, testInfo) => {
+    markMockActor(testInfo, 'coordinador_escuela')
     await seedSession(page, QA_EMAIL.coordinador, 'Coordinación')
     await page.route('**/auth/me', async (route) => {
       await route.fulfill({
@@ -452,7 +462,8 @@ test.describe('school license roles', () => {
 
   test(
     qaTitle(['coordinador_escuela', 'familia_escolar'], 've cupos y la lista de padres que registró'),
-    async ({ page }) => {
+    async ({ page }, testInfo) => {
+    markMockActor(testInfo, ['coordinador_escuela', 'familia_escolar'])
     await seedSession(page, QA_EMAIL.coordinador, 'Coordinación')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
@@ -507,7 +518,8 @@ test.describe('school license roles', () => {
     await expect(page.getByText(/correo de la familia/i)).toHaveCount(0)
   })
 
-  test(qaTitle('coordinador_escuela', 'rechaza correos mal formados en la lista de padres'), async ({ page }) => {
+  test(qaTitle('coordinador_escuela', 'rechaza correos mal formados en la lista de padres'), async ({ page }, testInfo) => {
+    markMockActor(testInfo, 'coordinador_escuela')
     await seedSession(page, QA_EMAIL.coordinador, 'Coordinador')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
@@ -536,7 +548,8 @@ test.describe('school license roles', () => {
     await expect(page.getByText('Agrega al menos un correo de padre.')).toBeVisible()
   })
 
-  test(qaTitle('coordinador_escuela', 'revoca cupo y devuelve la familia a Free'), async ({ page }) => {
+  test(qaTitle('coordinador_escuela', 'revoca cupo y devuelve la familia a Free'), async ({ page }, testInfo) => {
+    markMockActor(testInfo, 'coordinador_escuela')
     await seedSession(page, QA_EMAIL.coordinador, 'Coordinador')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({
@@ -581,7 +594,8 @@ test.describe('school license roles', () => {
     await expect.poll(() => released).toBe(true)
   })
 
-  test(qaTitle('coordinador_escuela', 'enlace de acuerdo sin token no abre carga'), async ({ page }) => {
+  test(qaTitle('coordinador_escuela', 'enlace de acuerdo sin token no abre carga'), async ({ page }, testInfo) => {
+    markMockActor(testInfo, 'coordinador_escuela')
     await page.route('**/school-agreements/packet**', async (route) => {
       await route.fulfill({
         status: 404,
@@ -605,7 +619,8 @@ test.describe('school license roles', () => {
     await expect(page.getByRole('button', { name: 'Enviar acuerdo firmado y comprobante' })).toHaveCount(0)
   })
 
-  test(qaTitle('familia_escolar', 'padre con canje no abre el escritorio escolar'), async ({ page }) => {
+  test(qaTitle('familia_escolar', 'padre con canje no abre el escritorio escolar'), async ({ page }, testInfo) => {
+    markMockActor(testInfo, 'familia_escolar')
     await seedSession(page, QA_EMAIL.familiaEscolar, 'Ana')
     await page.route('**/entitlements/school-desk', async (route) => {
       await route.fulfill({

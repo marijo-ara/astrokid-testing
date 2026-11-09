@@ -1,7 +1,11 @@
 import { test, expect } from '../../fixtures/base'
 import { qaIdentityEmail, qaTitle } from '../../config/qaTestAccounts'
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations'
 
-test.describe('Dev Login Flow - UI', () => {
+test.describe('12 — E2E: dev login flow', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'familia_free', 'mock_api')
+  })
   test(qaTitle('familia_free', 'sesión mock carga el panel con llamadas protegidas'), async ({
     page,
     dashboardPage,

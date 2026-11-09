@@ -1,10 +1,15 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 import { LandingPage } from '../../pages/LandingPage';
 import { DashboardPage } from '../../pages/DashboardPage';
 
-test.describe('Core Web Vitals Tests', () => {
+test.describe('24 — Performance: Core Web Vitals', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
   test.describe('Largest Contentful Paint (LCP)', () => {
-    test('should have good LCP score', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have good LCP score'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -34,7 +39,7 @@ test.describe('Core Web Vitals Tests', () => {
   });
 
   test.describe('First Input Delay (FID)', () => {
-    test('should have good FID score', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have good FID score'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -64,7 +69,7 @@ test.describe('Core Web Vitals Tests', () => {
   });
 
   test.describe('Cumulative Layout Shift (CLS)', () => {
-    test('should have good CLS score', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have good CLS score'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -99,7 +104,7 @@ test.describe('Core Web Vitals Tests', () => {
   });
 
   test.describe('First Contentful Paint (FCP)', () => {
-    test('should have good FCP score', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have good FCP score'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -129,7 +134,7 @@ test.describe('Core Web Vitals Tests', () => {
   });
 
   test.describe('Time to Interactive (TTI)', () => {
-    test('should have good TTI score', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have good TTI score'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -159,7 +164,7 @@ test.describe('Core Web Vitals Tests', () => {
   });
 
   test.describe('Speed Index', () => {
-    test('should have good Speed Index score', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have good Speed Index score'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -189,7 +194,7 @@ test.describe('Core Web Vitals Tests', () => {
   });
 
   test.describe('Total Blocking Time (TBT)', () => {
-    test('should have good TBT score', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have good TBT score'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();

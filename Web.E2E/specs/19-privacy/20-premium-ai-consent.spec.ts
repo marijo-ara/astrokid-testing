@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/base'
 import { qaTitle } from '../../config/qaTestAccounts'
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations'
 import { AI_NOTICE_VERSION, PREMIUM_PARENT } from '../../helpers/aiConsentBackend'
 
 /**
@@ -7,8 +8,9 @@ import { AI_NOTICE_VERSION, PREMIUM_PARENT } from '../../helpers/aiConsentBacken
  * only turns on after the parent accepts the third-party notice.
  * Requirement IDs: docs/COPPA_REQUIREMENTS.md. Backend rules: API.Tests/Coppa/CoppaTests.cs.
  */
-test.describe('COPPA-18 — Premium y el aviso de IA en el panel', () => {
-  test.beforeEach(async ({ dashboardPage, premiumAiBackend }) => {
+test.describe('20 — Privacy: premium e IA en el panel', () => {
+  test.beforeEach(async ({ dashboardPage, premiumAiBackend }, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'familia_premium', 'mock_api')
     expect(premiumAiBackend.decisions).toEqual([])
     await dashboardPage.goto()
   })

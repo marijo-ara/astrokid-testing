@@ -6,15 +6,20 @@ tests (Jest) stay in `astro-kid-web`.
 
 ## Layout
 
-| Folder | What it covers |
-| --- | --- |
-| `specs/smoke` | Landing load, plus parent plan, school license, and admin school list when the QA accounts are set |
-| `specs/e2e` | Inicio de sesión del padre, inicio de desarrollo, padre → niño, recorrido, y los tres roles de la licencia escolar con la API simulada. El guion manual contra QA (crear la escuela, acuerdo, coordinador en `/escuela`, padre en `/access`) está en [`docs/casos/ESCUELA.md`](../docs/casos/ESCUELA.md) |
-| `specs/privacy` | COPPA checks: no trackers before consent or on child routes, policy text, email-plus link |
-| `specs/accessibility` | WCAG checks (labels, focus, contrast) |
-| `specs/performance` | Core Web Vitals and load budgets |
-| `specs/provisioning` | Asegura cuentas QA (login o registro): admin, coordinador, familias Proton — [`docs/casos/REGISTRO_USUARIOS_QA.md`](../docs/casos/REGISTRO_USUARIOS_QA.md) |
-| `pages`, `fixtures`, `helpers`, `config` | Page objects and shared setup |
+Carpetas y archivos van **prefijados 01–24** para que la UI de Playwright ordene las suites de arriba abajo (el `test.describe` repite el mismo número).
+
+| # | Carpeta / archivo | Qué cubre |
+| --- | --- | --- |
+| 01–06 | `specs/01-provisioning/` | Provisioning QA: Firebase, admin, coordinador, familias — [`REGISTRO_USUARIOS_QA.md`](../docs/casos/REGISTRO_USUARIOS_QA.md) |
+| 07–10 | `specs/07-smoke/` | Landing, dashboard, licencia escolar con cuentas QA |
+| 11–18 | `specs/11-e2e/` | Login, recorridos, licencia escolar (API simulada) — [`ESCUELA.md`](../docs/casos/ESCUELA.md) |
+| 19–20 | `specs/19-privacy/` | COPPA y consentimiento Premium / IA |
+| 21–22 | `specs/21-accessibility/` | WCAG y accesibilidad + rendimiento |
+| 23–24 | `specs/23-performance/` | Presupuestos de carga y Core Web Vitals |
+
+| `pages`, `fixtures`, `helpers`, `config` | Page objects y setup compartido |
+
+**Quién ejecuta cada prueba (Admin, Familia Free, visitante, mock):** [`docs/casos/E2E_ACTORES_QA.md`](../docs/casos/E2E_ACTORES_QA.md) — en Playwright, anotación `qa-actor` en el reporte.
 
 ## Run
 
@@ -76,4 +81,4 @@ Run them with `npx playwright test --grep @coppa`.
 - `tests/test.spec.ts`: called a non-existent page method on google.com.
 - `tests/api/auth-api.spec.ts`: dev-login + family create + by-email are covered
   by `API.Tests/Auth` and `API.Tests/FamilyProfiles` (one API framework).
-- `simple-test.spec.ts` is now `specs/smoke/landing-heading.spec.ts`.
+- `simple-test.spec.ts` is now `specs/07-smoke/07-landing-heading.spec.ts`.

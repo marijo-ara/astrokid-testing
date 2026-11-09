@@ -1,8 +1,13 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
-test.describe('Simple E2E Tests', () => {
+test.describe('11 — E2E: simple', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
   
-  test('should load landing page', async ({ page }) => {
+  test(qaTitle('visitante', 'should load landing page'), async ({ page }) => {
     await test.step('Navigate to landing page', async () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
@@ -20,7 +25,7 @@ test.describe('Simple E2E Tests', () => {
     });
   });
 
-  test('should load login page', async ({ page }) => {
+  test(qaTitle('visitante', 'should load login page'), async ({ page }) => {
     await test.step('Navigate to login page', async () => {
       await page.goto('/login');
       await page.waitForLoadState('networkidle');
@@ -38,7 +43,7 @@ test.describe('Simple E2E Tests', () => {
     });
   });
 
-  test('should load dashboard page', async ({ page }) => {
+  test(qaTitle('visitante', 'should load dashboard page'), async ({ page }) => {
     await test.step('Navigate to dashboard page', async () => {
       await page.goto('/dashboard');
       await page.waitForLoadState('networkidle');
@@ -56,7 +61,7 @@ test.describe('Simple E2E Tests', () => {
     });
   });
 
-  test('should handle page navigation', async ({ page, testHelpers }) => {
+  test(qaTitle('visitante', 'should handle page navigation'), async ({ page, testHelpers }) => {
     await test.step('Start from landing page', async () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
@@ -79,7 +84,7 @@ test.describe('Simple E2E Tests', () => {
     });
   });
 
-  test('should verify page responsiveness', async ({ page }) => {
+  test(qaTitle('visitante', 'should verify page responsiveness'), async ({ page }) => {
     await test.step('Test desktop viewport', async () => {
       await page.setViewportSize({ width: 1200, height: 800 });
       await page.goto('/');
@@ -99,7 +104,7 @@ test.describe('Simple E2E Tests', () => {
     });
   });
 
-  test('should verify basic page elements', async ({ page }) => {
+  test(qaTitle('visitante', 'should verify basic page elements'), async ({ page }) => {
     await test.step('Load landing page', async () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');

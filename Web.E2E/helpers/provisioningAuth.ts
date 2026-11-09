@@ -277,11 +277,21 @@ async function attemptLoginOnce(
   }
 
   if (first !== 'error' && isOffLoginRoute(page)) {
+    if ((isOnboardingRoute(page) || (await isOnboardingWelcomeVisible(page))) && (await hasParentSession(page))) {
+      return { status: 'logged_in' }
+    }
     return {
       status: 'login_failed',
       message:
         'Login redirigió fuera de /login pero no hay dashboard (Salir / ¡Hola) ni onboarding (Así acompaña AstroKid).',
       kind: null,
+    }
+  }
+
+  if (isOnboardingRoute(page) || (await isOnboardingWelcomeVisible(page))) {
+    await waitForPostLoginShellSettled(page)
+    if (await hasParentSession(page)) {
+      return { status: 'logged_in' }
     }
   }
 

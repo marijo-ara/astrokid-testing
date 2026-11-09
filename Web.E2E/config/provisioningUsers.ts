@@ -130,3 +130,7 @@ export function listProvisioningPersonas(): ProvisioningPersona[] {
 
   return personas
 }
+
+export function findProvisioningPersona(id: ProvisioningPersonaId): ProvisioningPersona | undefined {
+  return listProvisioningPersonas().find((p) => p.id === id)
+}

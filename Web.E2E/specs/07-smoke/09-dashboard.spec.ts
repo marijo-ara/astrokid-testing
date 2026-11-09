@@ -1,12 +1,14 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
-test.describe('Dashboard - Smoke Tests', () => {
-  
-  test.beforeEach(async ({ testHelpers }) => {
+test.describe('09 — Smoke: dashboard', () => {
+  test.beforeEach(async ({ testHelpers }, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'mock_padre_fixture', 'mock_api');
     await testHelpers.setupTestEnvironment();
   });
 
-  test('should load dashboard successfully', async ({ dashboardPage, testHelpers }) => {
+  test(qaTitle('mock_padre_fixture', 'should load dashboard successfully'), async ({ dashboardPage, testHelpers }) => {
     await test.step('Navigate to dashboard', async () => {
       await dashboardPage.goto();
     });
@@ -56,7 +58,7 @@ test.describe('Dashboard - Smoke Tests', () => {
     });
   });
 
-  test('should display agent cards', async ({ dashboardPage, testHelpers }) => {
+  test(qaTitle('mock_padre_fixture', 'should display agent cards'), async ({ dashboardPage, testHelpers }) => {
     await test.step('Setup test environment', async () => {
       await testHelpers.mockSpaceAgents(testHelpers.createDefaultSpaceAgents());
     });
@@ -80,7 +82,7 @@ test.describe('Dashboard - Smoke Tests', () => {
     });
   });
 
-  test('should display progress stars', async ({ dashboardPage, testHelpers }) => {
+  test(qaTitle('mock_padre_fixture', 'should display progress stars'), async ({ dashboardPage, testHelpers }) => {
     await test.step('Setup test environment', async () => {
       await testHelpers.mockSpaceAgents(testHelpers.createDefaultSpaceAgents());
     });
@@ -95,7 +97,7 @@ test.describe('Dashboard - Smoke Tests', () => {
     });
   });
 
-  test('should handle user menu interaction', async ({ dashboardPage, testHelpers }) => {
+  test(qaTitle('mock_padre_fixture', 'should handle user menu interaction'), async ({ dashboardPage, testHelpers }) => {
     await test.step('Setup test environment', async () => {
       await testHelpers.mockSpaceAgents(testHelpers.createDefaultSpaceAgents());
     });
@@ -159,7 +161,7 @@ test.describe('Dashboard - Smoke Tests', () => {
     });
   });
 
-  test('should display parent insights and journey snapshot', async ({ dashboardPage, testHelpers }) => {
+  test(qaTitle('mock_padre_fixture', 'should display parent insights and journey snapshot'), async ({ dashboardPage, testHelpers }) => {
     await test.step('Setup test environment', async () => {
       await testHelpers.mockSpaceAgents(testHelpers.createDefaultSpaceAgents());
     });
@@ -204,7 +206,7 @@ test.describe('Dashboard - Smoke Tests', () => {
     });
   });
 
-  test('should display child information', async ({ dashboardPage, testHelpers }) => {
+  test(qaTitle('mock_padre_fixture', 'should display child information'), async ({ dashboardPage, testHelpers }) => {
     await test.step('Setup test environment', async () => {
       await testHelpers.mockSpaceAgents(testHelpers.createDefaultSpaceAgents());
     });

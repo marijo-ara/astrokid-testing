@@ -1,8 +1,13 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
-test.describe('User Journey', () => {
+test.describe('15 — E2E: user journey', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
   
-  test('complete user journey from landing to dashboard', async ({ page, testHelpers }) => {
+  test(qaTitle('visitante', 'complete user journey from landing to dashboard'), async ({ page, testHelpers }) => {
     await test.step('Start from landing page', async () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
@@ -33,7 +38,7 @@ test.describe('User Journey', () => {
     });
   });
 
-  test('user journey with privacy policy interaction', async ({ page }) => {
+  test(qaTitle('visitante', 'user journey with privacy policy interaction'), async ({ page }) => {
     await test.step('Navigate to landing page', async () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
@@ -62,7 +67,7 @@ test.describe('User Journey', () => {
     });
   });
 
-  test('dashboard functionality with agent interaction', async ({ page }) => {
+  test(qaTitle('visitante', 'dashboard functionality with agent interaction'), async ({ page }) => {
     await test.step('Navigate to dashboard', async () => {
       await page.goto('/dashboard');
       await page.waitForLoadState('networkidle');

@@ -6,6 +6,7 @@ import {
   qaTitle,
 } from '../../config/qaTestAccounts';
 import { loginAs, requireSmokeAccount, usesRemoteFirebaseLogin } from '../../helpers/smokeAccount';
+import { annotateQaActors } from '../../helpers/qaActorAnnotations';
 import type { DashboardPage } from '../../pages/DashboardPage';
 import type { TestHelpers } from '../../helpers/TestHelpers';
 
@@ -35,7 +36,7 @@ async function assertSmokeParentDashboard(
   expect(hasErrors).toBe(false);
 }
 
-test.describe('Parent Login Flow', () => {
+test.describe('13 — E2E: parent login flow', () => {
   test(
     qaTitle('familia_free', 'con cuenta existente entra al panel con agentes y niño en menú'),
     async ({ 
@@ -43,7 +44,8 @@ test.describe('Parent Login Flow', () => {
     loginPage, 
     dashboardPage, 
     testHelpers 
-  }) => {
+  }, testInfo) => {
+  annotateQaActors(testInfo, 'familia_free', 'firebase_login')
   const smokeParent = requireSmokeAccount('SMOKE_PARENT');
   if (usesRemoteFirebaseLogin()) {
     test.skip(!smokeParent, 'Falta Familia Free (provisioning / SMOKE_PARENT_*).');
@@ -260,12 +262,18 @@ test.describe('Parent Login Flow', () => {
   });
 
   test(
-    qaTitle('familia_free', '[mock] sin perfil en API redirige a onboarding'),
+    qaTitle('visitante', '[mock] sin perfil en API redirige a onboarding'),
     async ({ 
     page, 
     loginPage, 
     testHelpers 
-  }) => {
+  }, testInfo) => {
+  annotateQaActors(
+    testInfo,
+    'visitante',
+    'mock_localStorage',
+    `Simula padre sin perfil (${MOCK_UNPROVISIONED_PARENT_EMAIL})`
+  )
   test.skip(
     usesRemoteFirebaseLogin(),
     'Caso con mocks de ejemplo.com; en QA usar cuenta real en el otro test de login.'
@@ -388,7 +396,8 @@ test.describe('Parent Login Flow', () => {
     loginPage, 
     dashboardPage, 
     testHelpers 
-  }) => {
+  }, testInfo) => {
+  annotateQaActors(testInfo, 'familia_free', 'firebase_login')
   const smokeParent = requireSmokeAccount('SMOKE_PARENT');
   if (usesRemoteFirebaseLogin()) {
     test.skip(!smokeParent, 'Falta Familia Free (provisioning / SMOKE_PARENT_*).');

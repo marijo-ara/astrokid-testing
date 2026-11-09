@@ -1,11 +1,23 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 import { LandingPage } from '../../pages/LandingPage';
 import { DashboardPage } from '../../pages/DashboardPage';
 import { LoginPage } from '../../pages/LoginPage';
 
-test.describe('Performance Tests', () => {
+test.describe('23 — Performance', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
+
   test.describe('Page Load Performance', () => {
-    test('should load landing page within acceptable time', async ({ landingPage }) => {
+    test.beforeEach(async ({ testHelpers }, testInfo) => {
+      if (testInfo.title.includes('dashboard')) {
+        annotateSuiteDefaultActor(testInfo, 'mock_padre_fixture', 'mock_api');
+        await testHelpers.setupTestEnvironment();
+      }
+    });
+    test(qaTitle('visitante', 'should load landing page within acceptable time'), async ({ landingPage }) => {
       const startTime = Date.now();
       
       await test.step('Navigate to landing page', async () => {
@@ -22,7 +34,7 @@ test.describe('Performance Tests', () => {
       });
     });
 
-    test('should load dashboard within acceptable time', async ({ dashboardPage, testHelpers }) => {
+    test(qaTitle('mock_padre_fixture', 'should load dashboard within acceptable time'), async ({ dashboardPage, testHelpers }) => {
       await test.step('Setup test environment', async () => {
         await testHelpers.setupTestEnvironment();
       });
@@ -43,7 +55,7 @@ test.describe('Performance Tests', () => {
       });
     });
 
-    test('should load login page within acceptable time', async ({ loginPage }) => {
+    test(qaTitle('visitante', 'should load login page within acceptable time'), async ({ loginPage }) => {
       const startTime = Date.now();
       
       await test.step('Navigate to login page', async () => {
@@ -69,7 +81,7 @@ test.describe('Performance Tests', () => {
   });
 
   test.describe('Resource Loading Performance', () => {
-    test('should load all critical resources', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should load all critical resources'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -102,7 +114,7 @@ test.describe('Performance Tests', () => {
       });
     });
 
-    test('should have optimized images', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have optimized images'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -155,7 +167,7 @@ test.describe('Performance Tests', () => {
   });
 
   test.describe('JavaScript Performance', () => {
-    test('should execute JavaScript efficiently', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should execute JavaScript efficiently'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -189,7 +201,7 @@ test.describe('Performance Tests', () => {
       });
     });
 
-    test('should handle animations smoothly', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should handle animations smoothly'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -229,7 +241,7 @@ test.describe('Performance Tests', () => {
   });
 
   test.describe('Network Performance', () => {
-    test('should minimize network requests', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should minimize network requests'), async ({ landingPage }) => {
       const requests: string[] = [];
       
       await test.step('Monitor network requests', async () => {
@@ -254,7 +266,7 @@ test.describe('Performance Tests', () => {
       });
     });
 
-    test('should use efficient caching', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should use efficient caching'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -273,7 +285,7 @@ test.describe('Performance Tests', () => {
   });
 
   test.describe('Memory Performance', () => {
-    test('should not have memory leaks', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should not have memory leaks'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -321,7 +333,7 @@ test.describe('Performance Tests', () => {
   });
 
   test.describe('Core Web Vitals', () => {
-    test('should meet Core Web Vitals standards', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should meet Core Web Vitals standards'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -369,7 +381,7 @@ test.describe('Performance Tests', () => {
   });
 
   test.describe('Mobile Performance', () => {
-    test('should perform well on mobile devices', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should perform well on mobile devices'), async ({ landingPage }) => {
       await test.step('Set mobile viewport', async () => {
         await landingPage.page.setViewportSize({ width: 375, height: 667 });
       });

@@ -10,11 +10,11 @@ La interfaz bajo prueba está en español. Las rutas son `/admin/licenses`
 (`/admin/licencias` redirige ahí), `/escuela/acuerdo`, `/escuela`, `/access` y `/dashboard`.
 
 Estos casos no están automatizados como un solo flujo que cree un colegio en QA.
-`Web.E2E/specs/e2e/school-license-roles.spec.ts` cubre los tres roles con la API simulada:
+`Web.E2E/specs/11-e2e/18-school-license-roles.spec.ts` cubre los tres roles con la API simulada:
 el admin ve **Activar licencia escolar**, el coordinador ve la licencia activa (no el borrador),
 el primer nombre, la práctica CASEL, los cuatro marcos, **Revocar familia** y el correo mal
 formado, y un enlace de acuerdo sin token vigente no abre el formulario.
-`Web.E2E/specs/smoke/parent-license-school.spec.ts` entra con cuentas reales y solo lee:
+`Web.E2E/specs/07-smoke/10-parent-license-school.spec.ts` entra con cuentas reales y solo lee:
 el admin ve **Activar licencia escolar**; un padre ve **Admin · licencias** y no abre `/escuela`.
 La caja negra de API no crea escuelas. Rechaza el paquete sin referencia de pago, un enlace
 de acuerdo desconocido, y que un padre suelte un asiento.

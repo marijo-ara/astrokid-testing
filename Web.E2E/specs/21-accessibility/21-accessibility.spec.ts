@@ -1,9 +1,15 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
 
-test.describe('Accessibility Tests', () => {
+test.describe('21 — Accessibility', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
+
   test.describe('Landing Page Accessibility', () => {
-    test('should have proper heading hierarchy', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have proper heading hierarchy'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -21,7 +27,7 @@ test.describe('Accessibility Tests', () => {
       });
     });
 
-    test('should have proper ARIA labels and roles', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have proper ARIA labels and roles'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -47,7 +53,7 @@ test.describe('Accessibility Tests', () => {
       });
     });
 
-    test('should have proper color contrast', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have proper color contrast'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -73,7 +79,7 @@ test.describe('Accessibility Tests', () => {
       });
     });
 
-    test('should be keyboard navigable', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should be keyboard navigable'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -91,7 +97,7 @@ test.describe('Accessibility Tests', () => {
       });
     });
 
-    test('should have proper alt text for images', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have proper alt text for images'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -124,7 +130,7 @@ test.describe('Accessibility Tests', () => {
   });
 
   test.describe('Login Page Accessibility', () => {
-    test('should have proper form labels', async ({ loginPage }) => {
+    test(qaTitle('visitante', 'should have proper form labels'), async ({ loginPage }) => {
       await test.step('Navigate to login page', async () => {
         await loginPage.goto();
         // Skip isReady check as it might fail
@@ -147,7 +153,7 @@ test.describe('Accessibility Tests', () => {
       });
     });
 
-    test('should have proper error handling', async ({ loginPage }) => {
+    test(qaTitle('visitante', 'should have proper error handling'), async ({ loginPage }) => {
       await test.step('Navigate to login page', async () => {
         await loginPage.goto();
         // Skip isReady check as it might fail
@@ -179,7 +185,12 @@ test.describe('Accessibility Tests', () => {
   });
 
   test.describe('Dashboard Accessibility', () => {
-    test('should have proper navigation structure', async ({ dashboardPage, testHelpers }) => {
+    test.beforeEach(async ({ testHelpers }, testInfo) => {
+      annotateSuiteDefaultActor(testInfo, 'mock_padre_fixture', 'mock_api');
+      await testHelpers.setupTestEnvironment();
+    });
+
+    test(qaTitle('mock_padre_fixture', 'should have proper navigation structure'), async ({ dashboardPage, testHelpers }) => {
       await test.step('Setup test environment', async () => {
         await testHelpers.setupTestEnvironment();
       });
@@ -203,7 +214,7 @@ test.describe('Accessibility Tests', () => {
       });
     });
 
-    test('should have proper focus management', async ({ dashboardPage, testHelpers }) => {
+    test(qaTitle('mock_padre_fixture', 'should have proper focus management'), async ({ dashboardPage, testHelpers }) => {
       await test.step('Setup test environment', async () => {
         await testHelpers.setupTestEnvironment();
       });
@@ -237,7 +248,7 @@ test.describe('Accessibility Tests', () => {
   });
 
   test.describe('Screen Reader Compatibility', () => {
-    test('should have proper semantic HTML', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have proper semantic HTML'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -258,7 +269,7 @@ test.describe('Accessibility Tests', () => {
       });
     });
 
-    test('should have proper landmark roles', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should have proper landmark roles'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -278,7 +289,7 @@ test.describe('Accessibility Tests', () => {
   });
 
   test.describe('Mobile Accessibility', () => {
-    test('should be accessible on mobile devices', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should be accessible on mobile devices'), async ({ landingPage }) => {
       await test.step('Set mobile viewport', async () => {
         await landingPage.setViewportSize({ width: 375, height: 667 });
       });

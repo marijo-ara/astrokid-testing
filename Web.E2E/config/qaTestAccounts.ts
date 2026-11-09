@@ -89,10 +89,27 @@ export function requireQaAccount(role: QaRoleId): SmokeAccount | undefined {
   return account
 }
 
-/** Prefijo legible en títulos de prueba Playwright. */
-export function qaTitle(roles: QaRoleId | QaRoleId[], title: string): string {
+/** Actores sin cuenta QA (mismo texto que anotación `qa-actor`). */
+export type QaTitleSpecialActor = 'visitante' | 'diagnostico' | 'mock_padre_fixture'
+
+const QA_TITLE_SPECIAL: Record<QaTitleSpecialActor, string> = {
+  visitante: 'Visitante (sin sesión)',
+  diagnostico: 'Diagnóstico',
+  mock_padre_fixture: 'Mock — padre genérico',
+}
+
+export type QaTitleActor = QaRoleId | QaTitleSpecialActor
+
+/** Prefijo `[Rol]` en títulos Playwright (como provisioning). */
+export function qaTitle(roles: QaTitleActor | QaRoleId[] | QaTitleActor[], title: string): string {
   const list = Array.isArray(roles) ? roles : [roles]
-  const tag = list.map((r) => QA_ROLE_LABELS[r]).join(' + ')
+  const tag = list
+    .map((r) =>
+      typeof r === 'string' && r in QA_TITLE_SPECIAL
+        ? QA_TITLE_SPECIAL[r as QaTitleSpecialActor]
+        : QA_ROLE_LABELS[r as QaRoleId]
+    )
+    .join(' + ')
   return `[${tag}] ${title}`
 }
 

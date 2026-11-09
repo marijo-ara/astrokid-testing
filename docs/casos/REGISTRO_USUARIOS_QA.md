@@ -1,8 +1,21 @@
 # REG-PROV — Registrar usuarios (QA)
 
-Suite Playwright: `Web.E2E/specs/provisioning/registrar-usuarios.spec.ts` (`@provisioning`).
+Suites Playwright (`@provisioning`), **numeradas 01–06** para orden en la UI de Playwright (cada archivo corre sola sin bloquear las demás):
 
-Cada test adjunta el flujo **REG-PROV-01 / REG-PROV-02** (annotation `flow`) y los `test.step` siguen **Acción → Esperado**. Helpers: `Web.E2E/helpers/provisioningTestSteps.ts`.
+| # | Rol | Archivo |
+| --- | --- | --- |
+| 01 | Diagnóstico Firebase | `Web.E2E/specs/01-provisioning/01-firebase-key-smoke.spec.ts` |
+| 02 | Admin plataforma | `Web.E2E/specs/01-provisioning/02-admin-plataforma.spec.ts` (**crear escuela**: envío de acuerdo) |
+| 03 | Coordinador escuela | `03-coordinador-escuela.spec.ts` — preflight solo **verifica** URL capturada en **02**; coordinador **subir acuerdo** |
+| 04 | Familia Free | `Web.E2E/specs/01-provisioning/04-familia-free.spec.ts` |
+| 05 | Familia escolar | `Web.E2E/specs/01-provisioning/05-familia-escolar.spec.ts` |
+| 06 | Familia Premium | `Web.E2E/specs/01-provisioning/06-familia-premium.spec.ts` |
+
+`npm run test:provisioning` ejecuta 01–06. Ejemplo solo admin:  
+`npx playwright test specs/01-provisioning/02-admin-plataforma.spec.ts`
+
+Cada test adjunta el flujo **REG-PROV-01 / REG-PROV-02** (annotation `flow`) y los `test.step` siguen **Acción → Esperado**. Helpers: `Web.E2E/helpers/provisioningTestSteps.ts`.  
+Actores de todas las suites (no solo provisioning): [`E2E_ACTORES_QA.md`](E2E_ACTORES_QA.md).
 
 ## Objetivo
 
@@ -21,7 +34,7 @@ Así las demás suites (`SMOKE_PARENT_*`, `SMOKE_ADMIN_*`, etc.) pueden apuntar 
 | Rol | Correo | Notas |
 | --- | --- | --- |
 | Admin plataforma | `SMOKE_ADMIN_EMAIL` (o `REGISTRO_ADMIN_EMAIL`) | Debe estar en `ADMIN_EMAILS` del backend QA; contraseña `SMOKE_ADMIN_PASSWORD` o `REGISTRO_SUITE_PASSWORD`. |
-| Coordinador escuela | `SMOKE_COORDINATOR_EMAIL` | Contacto del acuerdo en ESCUELA; el escritorio `/escuela` tras activar licencia. |
+| Coordinador escuela | `SMOKE_COORDINATOR_EMAIL` | Contacto del acuerdo; contraseña `SMOKE_COORDINATOR_PASSWORD` o `REGISTRO_SUITE_PASSWORD`. Escritorio `/escuela` tras activar licencia. |
 | Familia Free | `SMOKE_PARENT_EMAIL` | Login o registro con la contraseña de suite. |
 | Familia escolar | `SMOKE_SCHOOL_EMAIL` | Onboarding + canje en `/access` si hay código (test 2). |
 | Familia Premium | `SMOKE_PREMIUM_EMAIL` (o `REGISTRO_PREMIUM_EMAIL`) | Premium requiere checkout o alta manual (`premium_unlimited`) en el test 2). |
@@ -49,7 +62,8 @@ Prueba manual: en QA `/registro` con `astrokid.io+1@proton.me` (o el tag de tu `
 
 | Variable | Uso |
 | --- | --- |
-| `REGISTRO_SUITE_PASSWORD` | Contraseña compartida (mín. 6 caracteres Firebase). **No subir a git.** |
+| `REGISTRO_SUITE_PASSWORD` | Contraseña compartida por defecto (mín. 6 caracteres Firebase). **No subir a git.** |
+| `SMOKE_COORDINATOR_PASSWORD` | Opcional: contraseña del coordinador si difiere de la suite (los tests TC02 usan `qaIdentityPassword`, no solo la suite). |
 | `REGISTRO_SCHOOL_INVITE_CODE` | Código escolar para `familia_escolar` (tras activar licencia). |
 | `REGISTRO_*_EMAIL` | Opcional: sobrescribe el correo por rol (`REGISTRO_FREE_EMAIL`, `REGISTRO_PREMIUM_EMAIL`, etc.). |
 | `SMOKE_ADMIN_EMAIL` / `SMOKE_ADMIN_PASSWORD` | Admin QA (login/registro en paso 1; envía acuerdo en paso 2). |
@@ -67,6 +81,25 @@ Prueba manual: en QA `/registro` con `astrokid.io+1@proton.me` (o el tag de tu `
 2. **Manual**: coordinador sube documentos; admin **Aprobar y activar** ([ESCUELA.md](ESCUELA.md) B–C).
 3. **Coordinador** (cuenta registrada): si la licencia está activa, agrega `SMOKE_SCHOOL_EMAIL` a la lista y envía código.
 4. **Familia escolar**: canje en `/access` con `REGISTRO_SCHOOL_INVITE_CODE`.
+
+### Enlace `/escuela/acuerdo?token=…` (coordinador)
+
+Tras el admin envía el acuerdo, el coordinador debe subir el PDF firmado y el comprobante. El E2E **`subir acuerdo firmado y comprobante`** rellena el formulario con el mismo correo del coordinador, fecha, referencia `QA-REF-E2E-001` (o `REGISTRO_SCHOOL_PAYMENT_REF`) y dos PDF de prueba.
+
+Token del enlace (uno de estos):
+
+| Origen | Config |
+| --- | --- |
+| Automático (recomendado) | `send-agreement` **no** devuelve URL. Render QA: `SCHOOL_AGREEMENT_QA_COORDINATOR_LINK=1`; la **02** llama `POST /admin/licenses/{id}/qa-coordinator-upload-link` y guarda el enlace (`.cache/`). |
+| Manual (solo depuración) | `REGISTRO_SCHOOL_PACKET_URL` si el backend no puede exponer la URL. |
+
+El siguiente test (rol **Admin**): **`activar licencia escolar tras paquete del coordinador`** → **Aprobar y activar licencia** en `/admin/licenses`. Deshabilitar con `REGISTRO_ESCUELA_ADMIN_ACTIVATE=0`.
+
+Después (coordinador + familia escolar): **`registrar familia licencia escolar en escritorio /escuela`** — agrega `SMOKE_SCHOOL_*` / `REGISTRO_ESCOLAR_EMAIL` y, por defecto, **Enviar el código a estos padres** (`REGISTRO_ESCUELA_SEND_INVITE=0` para solo listar). Deshabilitar registro con `REGISTRO_ESCUELA_REGISTER_PARENT=0`.
+
+Cierre de suite: **`validar rol: escritorio /escuela`** (escritorio visible y familia en pendientes).
+
+Render QA (token automático): [RENDER_QA_ESCUELA_E2E.md](RENDER_QA_ESCUELA_E2E.md).
 
 ## Reutilizar en otras suites
 

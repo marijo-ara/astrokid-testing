@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/base';
 import { qaIdentityEmail, qaTitle } from '../../config/qaTestAccounts';
+import { annotateQaActors } from '../../helpers/qaActorAnnotations';
 
 /**
  * Password reset stays on the login page and does not say whether the account exists.
@@ -8,7 +9,10 @@ import { qaIdentityEmail, qaTitle } from '../../config/qaTestAccounts';
 
 const RESET_EMAIL = qaIdentityEmail('familia_free');
 
-test.describe('Password reset', () => {
+test.describe('14 — E2E: password reset', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateQaActors(testInfo, 'familia_free', 'sin_sesion', 'Solo correo en formularios; sin login')
+  })
   test(
     qaTitle('familia_free', 'pide enlace de recuperación sin revelar si la cuenta existe'),
     async ({ page, loginPage }) => {

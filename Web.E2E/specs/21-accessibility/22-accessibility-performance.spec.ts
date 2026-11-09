@@ -1,9 +1,14 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
 
-test.describe('Accessibility + Performance Integration', () => {
+test.describe('22 — Accessibility + performance', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
   test.describe('Accessible Performance', () => {
-    test('should maintain accessibility while performing well', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should maintain accessibility while performing well'), async ({ landingPage }) => {
       const startTime = Date.now();
       
       await test.step('Navigate to landing page', async () => {
@@ -37,7 +42,7 @@ test.describe('Accessibility + Performance Integration', () => {
       });
     });
 
-    test('should handle keyboard navigation efficiently', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should handle keyboard navigation efficiently'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -65,7 +70,7 @@ test.describe('Accessibility + Performance Integration', () => {
   });
 
   test.describe('Screen Reader Performance', () => {
-    test('should work efficiently with screen readers', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should work efficiently with screen readers'), async ({ landingPage }) => {
       await test.step('Navigate to landing page', async () => {
         await landingPage.goto();
         await landingPage.isReady();
@@ -97,7 +102,7 @@ test.describe('Accessibility + Performance Integration', () => {
   });
 
   test.describe('Mobile Accessibility Performance', () => {
-    test('should be accessible and performant on mobile', async ({ landingPage }) => {
+    test(qaTitle('visitante', 'should be accessible and performant on mobile'), async ({ landingPage }) => {
       await test.step('Set mobile viewport', async () => {
         await landingPage.setViewportSize({ width: 375, height: 667 });
       });

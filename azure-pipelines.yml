@@ -236,7 +236,7 @@ jobs:
       workingDirectory: Web.E2E
 
     # Release gate: smoke + COPPA web checks
-    - script: npx playwright test specs/smoke specs/privacy --project=chromium
+    - script: npx playwright test specs/07-smoke specs/19-privacy --project=chromium
       displayName: 'Web Smoke + COPPA'
       workingDirectory: Web.E2E
       env:
@@ -257,7 +257,7 @@ jobs:
         SMOKE_ADMIN_PASSWORD: '$(SMOKE_ADMIN_PASSWORD)'
         SMOKE_SCHOOL_NAME: '$(SMOKE_SCHOOL_NAME)'
 
-    - script: npx playwright test specs/e2e specs/accessibility specs/performance
+    - script: npx playwright test specs/11-e2e specs/21-accessibility specs/23-performance
       displayName: 'Web E2E + accesibilidad + performance'
       workingDirectory: Web.E2E
       env:

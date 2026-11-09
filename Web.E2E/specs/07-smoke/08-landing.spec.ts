@@ -1,8 +1,13 @@
 import { test, expect } from '../../fixtures/base';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
-test.describe('Landing Page - Smoke Tests', () => {
+test.describe('08 — Smoke: landing', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
   
-  test('should load landing page successfully', async ({ landingPage }) => {
+  test(qaTitle('visitante', 'should load landing page successfully'), async ({ landingPage }) => {
     await test.step('Navigate to landing page', async () => {
       await landingPage.goto();
     });
@@ -23,7 +28,7 @@ test.describe('Landing Page - Smoke Tests', () => {
     });
   });
 
-  test('should display navigation elements', async ({ landingPage }) => {
+  test(qaTitle('visitante', 'should display navigation elements'), async ({ landingPage }) => {
     await test.step('Navigate to landing page', async () => {
       await landingPage.goto();
     });
@@ -38,7 +43,7 @@ test.describe('Landing Page - Smoke Tests', () => {
     });
   });
 
-  test('should display agents image', async ({ landingPage }) => {
+  test(qaTitle('visitante', 'should display agents image'), async ({ landingPage }) => {
     await test.step('Navigate to landing page', async () => {
       await landingPage.goto();
     });
@@ -53,7 +58,7 @@ test.describe('Landing Page - Smoke Tests', () => {
     });
   });
 
-  test('should open privacy policy and terms as separate pages', async ({ landingPage }) => {
+  test(qaTitle('visitante', 'should open privacy policy and terms as separate pages'), async ({ landingPage }) => {
     await test.step('Navigate to landing page', async () => {
       await landingPage.goto();
     });
@@ -72,7 +77,7 @@ test.describe('Landing Page - Smoke Tests', () => {
     });
   });
 
-  test('should navigate to login page', async ({ landingPage }) => {
+  test(qaTitle('visitante', 'should navigate to login page'), async ({ landingPage }) => {
     await test.step('Navigate to landing page', async () => {
       await landingPage.goto();
     });

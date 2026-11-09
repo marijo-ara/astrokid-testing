@@ -1,5 +1,6 @@
 import { test, expect, type Page, type TestInfo } from '@playwright/test'
 import type { ProvisioningPersona, ProvisioningRole } from '../config/provisioningUsers'
+import { annotateQaActors, provisioningPersonaToQaRole } from './qaActorAnnotations'
 import type { SmokeAccount } from './smokeAccount'
 import {
   assertAuthenticatedParent,
@@ -13,8 +14,19 @@ import {
 import {
   adminSendSchoolAgreement,
   coordinatorRegisterParentEmail,
+  resolveProvisioningSchoolName,
+  adminActivateSchoolLicenseOnDesk,
+  coordinatorEmailSchoolInviteToParents,
+  submitSchoolAgreementForm,
   type SendSchoolAgreementInput,
 } from './schoolProvisioning'
+import {
+  defaultCoordinatorPacketInput,
+  requireSchoolPacketToken,
+  submitCoordinatorSchoolPacket,
+} from './coordinatorSchoolPacket'
+import { hasResolvableSchoolPacketLink } from './schoolPacketTokenStore'
+import { resolveProvisioningAdmin, resolveProvisioningEmail, PROVISIONING_ROLES } from '../config/provisioningUsers'
 
 /** Caso REG-PROV-01 — visible en el reporte Playwright (annotation type flow). */
 export const PROVISIONING_FLOW_TC01 = `
@@ -143,6 +155,202 @@ export async function stepAdminSendSchoolAgreement(
   })
 }
 
+const coordinatorRole = PROVISIONING_ROLES.find((r) => r.id === 'coordinador_escuela')!
+
+/** REG-PROV admin — crear escuela en borrador (acuerdo enviado, tarjeta Pendiente). */
+export async function stepAdminCreateSchoolAgreement(page: Page, testInfo: TestInfo): Promise<void> {
+  annotateQaActors(testInfo, 'admin_plataforma', 'firebase_login')
+  const admin = resolveProvisioningAdmin()
+  if (!admin) {
+    test.skip(true, 'Sin SMOKE_ADMIN_EMAIL / REGISTRO_ADMIN_EMAIL.')
+    return
+  }
+  if (!shouldSendEscuelaAgreementEnv()) {
+    test.skip(true, 'REGISTRO_ESCUELA_SEND_AGREEMENT=0.')
+    return
+  }
+
+  const coordinatorEmail = resolveProvisioningEmail(coordinatorRole)
+  const input: SendSchoolAgreementInput = {
+    schoolName: resolveProvisioningSchoolName(),
+    coordinatorEmail,
+    families: process.env.REGISTRO_SCHOOL_FAMILIES?.trim() || '2',
+    students: process.env.REGISTRO_SCHOOL_STUDENTS?.trim() || '2',
+  }
+
+  await test.step(
+    `Acción: crear escuela «${input.schoolName}» → Esperado: acuerdo enviado y estado Pendiente`,
+    async () => {
+      await stepSignOutForNextAccount(page)
+      const outcome = await stepEnsureAccount(page, admin.email, admin.password)
+      if (outcome === 'confirm_email') {
+        stepAnnotateConfirmEmail(testInfo, 'Admin plataforma', admin.email)
+        expect.soft(false, 'Admin: confirmar correo antes de /admin/licenses.').toBe(true)
+        return
+      }
+      await stepAssertParentSession(page, 'Admin plataforma')
+      await submitSchoolAgreementForm(page, input)
+      expect(
+        hasResolvableSchoolPacketLink(),
+        'Sin enlace de coordinador: Render QA con SCHOOL_AGREEMENT_QA_COORDINATOR_LINK=1 (send-agreement no devuelve URL; ver docs/casos/RENDER_QA_ESCUELA_E2E.md).'
+      ).toBe(true)
+    }
+  )
+
+  testInfo.annotations.push({
+    type: 'note',
+    description:
+      'Siguiente en suite 03: coordinador sube paquete con el enlace capturado; admin activa; luego escritorio /escuela.',
+  })
+}
+
+function shouldSendEscuelaAgreementEnv(): boolean {
+  return process.env.REGISTRO_ESCUELA_SEND_AGREEMENT !== '0'
+}
+
+/**
+ * Suite 03: el acuerdo ya lo envía la 02. Solo verifica que quedó el enlace capturado (memoria + .cache).
+ */
+export async function stepAssertSchoolPacketLinkReady(testInfo: TestInfo): Promise<void> {
+  await test.step(
+    'Preflight: enlace /escuela/acuerdo capturado en suite 02 → sin reenviar acuerdo',
+    async () => {
+      expect(
+        hasResolvableSchoolPacketLink(),
+        'Falta enlace de coordinador: corré antes 02-admin «enviar acuerdo» (02 antes que 03). Render QA: SCHOOL_AGREEMENT_QA_COORDINATOR_LINK=1.'
+      ).toBe(true)
+    }
+  )
+  testInfo.annotations.push({
+    type: 'note',
+    description: 'El coordinador usa el token dinámico guardado al enviar el acuerdo en la suite 02.',
+  })
+}
+
+/** Coordinador sube acuerdo firmado + comprobante en /escuela/acuerdo?token=… */
+export async function stepCoordinatorSubmitSchoolPacket(
+  page: Page,
+  coordinatorEmail: string
+): Promise<void> {
+  const token = requireSchoolPacketToken()
+  expect(
+    token,
+    'Sin token /escuela/acuerdo: ejecutá antes el test [Admin preflight] (misma suite 03, en serie) o la suite 02.'
+  ).toBeTruthy()
+  if (!token) return
+  const input = defaultCoordinatorPacketInput(coordinatorEmail)
+  await test.step(
+    `Acción: /escuela/acuerdo (${input.signerEmail}) → Esperado: Documentos enviados`,
+    async () => {
+      await submitCoordinatorSchoolPacket(page, token, input)
+    }
+  )
+}
+
+/**
+ * Login coordinador → primera pantalla de onboarding → enlace del correo `/escuela/acuerdo?token=…`.
+ */
+export async function stepCoordinatorLoginOnboardingThenSchoolPacket(
+  page: Page,
+  coordinatorEmail: string,
+  password: string,
+  coordinatorLabel: string
+): Promise<'logged_in' | 'confirm_email'> {
+  await stepSignOutForNextAccount(page)
+  const outcome = await stepEnsureAccount(page, coordinatorEmail, password)
+  if (outcome === 'confirm_email') {
+    return outcome
+  }
+
+  await test.step(
+    'Acción: tras login → Esperado: onboarding «Así acompaña AstroKid» (primera pantalla)',
+    async () => {
+      await stepAssertRegProv01LoginDestination(page, coordinatorLabel)
+    }
+  )
+
+  await test.step(
+    'Acción: abrir enlace del correo /escuela/acuerdo?token=… → Esperado: formulario Acuerdo y comprobante',
+    async () => {
+      await stepCoordinatorSubmitSchoolPacket(page, coordinatorEmail)
+    }
+  )
+  return 'logged_in'
+}
+
+/** Admin activa la licencia cuando el coordinador ya subió acuerdo + comprobante. */
+export async function stepAdminActivateSchoolLicense(page: Page, testInfo: TestInfo): Promise<void> {
+  annotateQaActors(testInfo, 'admin_plataforma', 'firebase_login')
+  const admin = resolveProvisioningAdmin()
+  if (!admin) {
+    test.skip(true, 'Sin SMOKE_ADMIN_EMAIL / REGISTRO_ADMIN_EMAIL.')
+    return
+  }
+
+  await test.step(
+    `Acción: admin aprueba paquete de «${resolveProvisioningSchoolName()}» → Esperado: licencia activa + código`,
+    async () => {
+      await stepSignOutForNextAccount(page)
+      const outcome = await stepEnsureAccount(page, admin.email, admin.password)
+      if (outcome === 'confirm_email') {
+        stepAnnotateConfirmEmail(testInfo, 'Admin plataforma', admin.email)
+        expect.soft(false, 'Admin: confirmar correo antes de activar licencia.').toBe(true)
+        return
+      }
+      await stepAssertParentSession(page, 'Admin plataforma')
+      await adminActivateSchoolLicenseOnDesk(page)
+    }
+  )
+}
+
+/** Coordinador con licencia activa: agrega la familia escolar al escritorio y opcionalmente envía el código. */
+export async function stepCoordinatorRegisterSchoolFamily(
+  page: Page,
+  coordinatorLabel: string,
+  schoolParentEmail: string,
+  options: { sendInvite?: boolean } = {}
+): Promise<void> {
+  await test.step(
+    'Acción: /escuela con licencia activa → Esperado: escritorio school-license-desk',
+    async () => {
+      await page.goto('/escuela')
+      await expect(
+        page.getByRole('heading', { name: /Guía de alineación|School alignment/i })
+      ).toBeVisible({ timeout: 25_000 })
+      const denied = await page.getByTestId('school-desk-denied').isVisible().catch(() => false)
+      expect(
+        denied,
+        `${coordinatorLabel}: licencia escolar aún no activa (correr admin «activar licencia» antes).`
+      ).toBe(false)
+      await expect(page.getByTestId('school-license-desk')).toBeVisible({ timeout: 30_000 })
+    }
+  )
+
+  const given = process.env.REGISTRO_ESCUELA_PARENT_GIVEN?.trim() || 'Familia'
+  const family = process.env.REGISTRO_ESCUELA_PARENT_FAMILY?.trim() || 'Proton'
+  await test.step(
+    `Acción: agregar familia escolar ${schoolParentEmail} → Esperado: pendiente en lista`,
+    async () => {
+      await coordinatorRegisterParentEmail(page, schoolParentEmail, given, family)
+    }
+  )
+
+  const sendInvite = options.sendInvite !== false && process.env.REGISTRO_ESCUELA_SEND_INVITE !== '0'
+  if (sendInvite) {
+    await test.step(
+      'Acción: Enviar el código a estos padres → Esperado: aviso de envío',
+      async () => {
+        await coordinatorEmailSchoolInviteToParents(page)
+      }
+    )
+    test.info().annotations.push({
+      type: 'note',
+      description:
+        'Familia escolar (suite 05): canjear en /access con el código del correo o REGISTRO_SCHOOL_INVITE_CODE.',
+    })
+  }
+}
+
 export async function stepCoordinatorEscuelaDesk(
   page: Page,
   schoolParentEmail: string,
@@ -252,6 +460,7 @@ export async function runProvisionPersona(
   testInfo: TestInfo,
   persona: ProvisioningPersona
 ): Promise<EnsureAccountOutcome> {
+  annotateQaActors(testInfo, provisioningPersonaToQaRole(persona.id), 'firebase_login')
   return test.step(`Persona: ${persona.label} (${persona.email})`, async () => {
     await stepSignOutForNextAccount(page)
     const outcome = await stepEnsureAccount(page, persona.email, persona.password)

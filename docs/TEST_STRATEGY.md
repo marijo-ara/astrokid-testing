@@ -38,7 +38,7 @@ cada regla de negocio.
 | Origen | Destino | Nota |
 | --- | --- | --- |
 | `astro-kid-web/apps/web/tests/**` (Playwright) | `Web.E2E/` | Config nueva, sin servidor local obligatorio |
-| `astro-kid-web/apps/web/tests/simple-test.spec.ts` | `Web.E2E/specs/smoke/landing-heading.spec.ts` | |
+| `astro-kid-web/apps/web/tests/simple-test.spec.ts` | `Web.E2E/specs/07-smoke/07-landing-heading.spec.ts` | |
 | `astro-kid-web/apps/mobile-tests/` (Appium) | `Mobile.E2E/` | Sin el `chromedriver.exe` versionado |
 | `astro-kid-backend/tests/integration/test_qa_endpoints.py` | `API.Tests/Health/HealthSmokeTests.cs`, `API.Tests/Wallet/WalletTests.cs` | Wallet reescrito con auth real (el C# anterior no enviaba token) |
 | `astrokid-auth/tests/e2e/test_flows_playwright.py` | `UI.Tests/AuthOAuthFlowTests.cs` | Claims vía `/userinfo` en vez de importar el código del servidor |
@@ -69,7 +69,7 @@ los jobs Playwright de `astro-kid-web/.gitlab-ci.yml`, el job `test_qa_endpoints
 | Unit | `astro-kid-backend/tests/unit/test_license_plan_switch.py` y `test_entitlements.py` | Free 10 → escuela 100 → revocación en pausa → Premium, en padre, niño y arco Free |
 | Integración | `astro-kid-backend/tests/integration/test_b2b2c_school_tiers.py` | Los mismos cambios por HTTP con `TestClient` |
 | Caja negra | `API.Tests/Licenses/LicensePyramidTests.cs`, `PilotSignalsContractTests.cs`, `SchoolAgreementContractTests.cs` | Familia nueva en QA es Free (10). Admin y códigos inválidos se rechazan. School desk, soltar un asiento y piloto: 401 sin sesión, 403 si no es contacto o admin. Un enlace de acuerdo desconocido responde 404. Un paquete sin referencia de pago responde 422. No crea escuelas ni escribe respuestas en el backend compartido |
-| Web / móvil | `Web.E2E/specs/e2e/school-license-roles.spec.ts`, `specs/smoke/parent-license-school.spec.ts`, `Mobile.E2E/features/smoke/school-child.feature` | Tres roles, el mismo correo no cambia de rol. El spec E2E simula la API: el admin envía el acuerdo, el coordinador ve la licencia activa, el primer nombre, la práctica CASEL, los cuatro marcos y puede revocar la familia; un correo mal formado no entra; un enlace de acuerdo sin token no abre el formulario; la familia canjea en `/access`. El smoke lee el plan de cuentas ya existentes: el admin ve **Activar licencia escolar** y un padre ve **Admin · licencias**. El guion manual está en [`docs/casos/ESCUELA.md`](casos/ESCUELA.md). El niño escolar entra en Android si hay token |
+| Web / móvil | `Web.E2E/specs/11-e2e/18-school-license-roles.spec.ts`, `specs/07-smoke/10-parent-license-school.spec.ts`, `Mobile.E2E/features/smoke/school-child.feature` | Tres roles, el mismo correo no cambia de rol. El spec E2E simula la API: el admin envía el acuerdo, el coordinador ve la licencia activa, el primer nombre, la práctica CASEL, los cuatro marcos y puede revocar la familia; un correo mal formado no entra; un enlace de acuerdo sin token no abre el formulario; la familia canjea en `/access`. El smoke lee el plan de cuentas ya existentes: el admin ve **Activar licencia escolar** y un padre ve **Admin · licencias**. El guion manual está en [`docs/casos/ESCUELA.md`](casos/ESCUELA.md). El niño escolar entra en Android si hay token |
 
 ## Pendiente
 

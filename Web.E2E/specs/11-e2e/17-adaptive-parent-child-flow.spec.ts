@@ -3,8 +3,12 @@
  */
 import { test, expect } from '../../fixtures/base'
 import { qaTitle } from '../../config/qaTestAccounts'
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations'
 
-test.describe('Adaptive parent dashboard — parent/child flow', () => {
+test.describe('17 — E2E: adaptive parent/child flow', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'familia_free', 'mock_api')
+  })
   test.beforeEach(async ({ testHelpers }) => {
     await testHelpers.setupTestEnvironment()
   })

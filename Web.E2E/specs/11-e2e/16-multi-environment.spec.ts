@@ -1,7 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
-test.describe('Multi-Environment Login Tests', () => {
-  test('should handle login behavior based on environment', async ({ page }) => {
+test.describe('16 — E2E: multi-environment login', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
+  test(qaTitle('visitante', 'should handle login behavior based on environment'), async ({ page }) => {
     await test.step('Navigate to login page', async () => {
       await page.goto('/login');
       await page.waitForLoadState('networkidle');
@@ -41,7 +46,7 @@ test.describe('Multi-Environment Login Tests', () => {
     });
   });
 
-  test('should handle different login behaviors per environment', async ({ page }) => {
+  test(qaTitle('visitante', 'should handle different login behaviors per environment'), async ({ page }) => {
     await test.step('Navigate to login page', async () => {
       await page.goto('/login');
       await page.waitForLoadState('networkidle');
@@ -71,7 +76,7 @@ test.describe('Multi-Environment Login Tests', () => {
     });
   });
 
-  test('should validate environment configuration', async ({ page }) => {
+  test(qaTitle('visitante', 'should validate environment configuration'), async ({ page }) => {
     await test.step('Verify base URL accessibility', async () => {
       try {
         const response = await page.goto('/');

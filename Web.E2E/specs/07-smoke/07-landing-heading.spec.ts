@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { qaTitle } from '../../config/qaTestAccounts';
+import { annotateSuiteDefaultActor } from '../../helpers/qaActorAnnotations';
 
-test.describe('Simple Test', () => {
-  test('should load the landing page', async ({ page }) => {
+test.describe('07 — Smoke: landing heading', () => {
+  test.beforeEach(({}, testInfo) => {
+    annotateSuiteDefaultActor(testInfo, 'visitante', 'sin_sesion');
+  });
+
+  test(qaTitle('visitante', 'should load the landing page'), async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
 
     await expect(page).toHaveTitle(/AstroKid/i, { timeout: 10000 });
