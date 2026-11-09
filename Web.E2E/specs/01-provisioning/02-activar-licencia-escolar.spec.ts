@@ -199,8 +199,10 @@ test.describe('Activar Licencia Escolar @provisioning', () => {
         return
       }
 
-      await stepAssertParentSession(page, coordinatorRole.label)
-      await stepCoordinatorAssertRedeemedSchoolFamily(page, coordinatorRole.label, schoolParentEmail)
+      await stepAssertRegProv01LoginDestination(page, coordinatorRole.label)
+      await stepCoordinatorAssertRedeemedSchoolFamily(page, coordinatorRole.label, schoolParentEmail, {
+        coordinatorEmail: email,
+      })
     }
   )
 })

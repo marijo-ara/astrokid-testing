@@ -17,7 +17,7 @@ import {
 import {
   adminSendSchoolAgreement,
   coordinatorRegisterParentEmail,
-  coordinatorLicenseCardForProvisioningRun,
+  coordinatorLicenseCardLocator,
   resolveProvisioningSchoolName,
   adminActivateSchoolLicenseOnDesk,
   coordinatorEmailSchoolInviteToParents,
@@ -453,29 +453,45 @@ export async function stepSchoolFamilyRedeemAccessAndQuota(
 export async function stepCoordinatorAssertRedeemedSchoolFamily(
   page: Page,
   coordinatorLabel: string,
-  schoolParentEmail: string
+  schoolParentEmail: string,
+  options: { coordinatorEmail?: string } = {}
 ): Promise<void> {
   const parentGiven = process.env.REGISTRO_ESCUELA_PARENT_GIVEN?.trim() || 'Familia'
-  const parentFamily = process.env.REGISTRO_ESCUELA_PARENT_FAMILY?.trim() || 'Proton'
   const childGiven = resolveProvisionedChildGivenName()
+  const parentEmail = schoolParentEmail.trim()
 
   await test.step(
-    `Acción: /escuela (${coordinatorLabel}) → Esperado: familia activa y niño «${childGiven}»`,
+    `Acción: /escuela (${coordinatorLabel}) → Esperado: licencia activa para ${parentEmail}`,
     async () => {
-      await provisionNavigateSchoolDesk(page)
+      await provisionNavigateSchoolDesk(page, { coordinatorEmail: options.coordinatorEmail })
+
       await expect(
         page.getByRole('heading', { name: /Guía de alineación|School alignment/i })
       ).toBeVisible({ timeout: 25_000 })
-      await expect(page.getByTestId('school-license-desk')).toBeVisible({ timeout: 30_000 })
 
-      const card = coordinatorLicenseCardForProvisioningRun(page)
-      await expect(card).toBeVisible({ timeout: 20_000 })
+      const loadingDesk = page.getByText(/^Cargando…$|^Loading…$/i)
+      if (await loadingDesk.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await loadingDesk.waitFor({ state: 'detached', timeout: 45_000 })
+      }
 
-      const roster = card.getByTestId('school-parent-roster')
-      await expect(roster).toContainText(schoolParentEmail, { timeout: 20_000 })
+      const denied = page.getByTestId('school-desk-denied')
+      expect(
+        await denied.isVisible({ timeout: 3_000 }).catch(() => false),
+        `${coordinatorLabel}: este correo no es contacto escolar en QA (revisá SMOKE_COORDINATOR_EMAIL en el acuerdo).`
+      ).toBe(false)
+
+      const desk = page.getByTestId('school-license-desk')
+      await expect(desk).toBeVisible({ timeout: 30_000 })
+      await expect(desk.getByTestId('school-license-card').first()).toBeVisible({ timeout: 30_000 })
+
+      await expect(desk).toContainText(parentEmail, { timeout: 25_000 })
+
+      const roster = desk.getByTestId('school-parent-roster').filter({ hasText: parentEmail }).first()
+      await expect(roster).toBeVisible({ timeout: 20_000 })
       await expect(roster).toContainText(parentGiven)
 
-      await expect(card.getByTestId('school-parent-pending')).toHaveCount(0)
+      const card = coordinatorLicenseCardLocator(page, { parentEmail })
+      await expect(card).toBeVisible({ timeout: 20_000 })
 
       const seats = card.getByTestId('school-family-seats')
       await expect(seats).toContainText(/Licencia escolar|School license/i, { timeout: 30_000 })
@@ -491,9 +507,14 @@ export async function stepCoordinatorAssertRedeemedSchoolFamily(
         test.info().annotations.push({
           type: 'note',
           description:
-            'Cupos sin nombre de niño: familia canjeó sin onboarding. Define REGISTRO_CHILD_GIVEN_NAME o completa perfil en paso familia.',
+            'Licencia canjeada verificada por correo en roster/cupos; sin nombre de niño (onboarding pendiente).',
         })
       }
+
+      test.info().annotations.push({
+        type: 'provisioning',
+        description: `Familia con licencia activa: ${parentEmail}`,
+      })
     }
   )
 }

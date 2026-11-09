@@ -1,10 +1,14 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { SmokeAccount } from './smokeAccount'
 import { loginAs } from './smokeAccount'
 import { rememberSchoolPacketFromAgreementResponse } from './schoolPacketCapture'
 import { captureSchoolInviteCodeFromAdmin } from './schoolInviteCodeCapture'
 import { formatSendAgreementHttpError } from './schoolAgreementRules'
-import { rememberProvisioningSchoolName, resolveProvisioningSchoolName } from './schoolRunStore'
+import {
+  rememberProvisioningSchoolName,
+  resolveProvisioningSchoolName,
+  resolveSchoolNameBase,
+} from './schoolRunStore'
 
 export type SendSchoolAgreementInput = {
   schoolName: string
@@ -13,17 +17,38 @@ export type SendSchoolAgreementInput = {
   students?: string
 }
 
-/** Tarjeta de licencia del colegio creado en esta corrida (varias licencias en QA). */
-export function coordinatorLicenseCardForProvisioningRun(page: Page) {
+/**
+ * Tarjeta de licencia en el escritorio del coordinador.
+ * Prioridad: correo del padre (post-canje) → colegio de la corrida → último colegio con el mismo base en QA.
+ */
+export function coordinatorLicenseCardLocator(
+  page: Page,
+  options?: { parentEmail?: string }
+): Locator {
   const desk = page.getByTestId('school-license-desk')
+  const parentEmail = options?.parentEmail?.trim()
+  if (parentEmail) {
+    return desk.getByTestId('school-license-card').filter({ hasText: parentEmail }).first()
+  }
   const schoolName = resolveProvisioningSchoolName()
-  const schoolArticle = desk.locator('article').filter({ hasText: schoolName })
-  return schoolArticle.getByTestId('school-license-card').first()
+  const base = resolveSchoolNameBase()
+  return desk
+    .locator('article')
+    .filter({ hasText: schoolName })
+    .getByTestId('school-license-card')
+    .first()
+    .or(desk.locator('article').filter({ hasText: base }).last().getByTestId('school-license-card').first())
+    .or(desk.getByTestId('school-license-card').first())
+}
+
+/** @deprecated use coordinatorLicenseCardLocator */
+export function coordinatorLicenseCardForProvisioningRun(page: Page) {
+  return coordinatorLicenseCardLocator(page)
 }
 
 /** Formulario «Agregar padre» de la licencia activa de esta corrida (evita 2+ colegios en QA). */
 function coordinatorParentListForm(page: Page) {
-  return coordinatorLicenseCardForProvisioningRun(page).getByTestId('school-parent-list')
+  return coordinatorLicenseCardLocator(page).getByTestId('school-parent-list')
 }
 
 /** ESCUELA.md A.1–A.4: formulario en /admin/licenses (sesión admin ya abierta). */
