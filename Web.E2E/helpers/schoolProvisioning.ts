@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { SmokeAccount } from './smokeAccount'
 import { loginAs } from './smokeAccount'
 import { rememberSchoolPacketFromAgreementResponse } from './schoolPacketCapture'
+import { captureSchoolInviteCodeFromAdmin } from './schoolInviteCodeCapture'
 
 export type SendSchoolAgreementInput = {
   schoolName: string
@@ -28,11 +29,27 @@ export async function submitSchoolAgreementForm(
   const captureUpload = page.waitForResponse(
     (res) =>
       res.url().includes('/admin/schools/send-agreement') &&
-      res.request().method() === 'POST' &&
-      res.ok()
+      res.request().method() === 'POST',
+    { timeout: 90_000 }
   )
   await page.getByRole('button', { name: 'Enviar acuerdo para firma y pago' }).click()
   const agreementResponse = await captureUpload
+  if (!agreementResponse.ok()) {
+    let detail = ''
+    try {
+      const json = (await agreementResponse.json()) as { detail?: string | { message_es?: string; message?: string; code?: string } }
+      if (typeof json.detail === 'string') detail = json.detail
+      else if (json.detail && typeof json.detail === 'object') {
+        detail = [json.detail.code, json.detail.message_es, json.detail.message].filter(Boolean).join(' — ')
+      }
+    } catch {
+      detail = (await agreementResponse.text()).replace(/\s+/g, ' ').slice(0, 320)
+    }
+    throw new Error(
+      `POST send-agreement → HTTP ${agreementResponse.status()}${detail ? `: ${detail}` : ''}. ` +
+        'Si el colegio ya tiene licencia activa o el paquete ya llegó, usá otro nombre (REGISTRO_SCHOOL_NAME) o archivá en /admin/licenses.'
+    )
+  }
   await rememberSchoolPacketFromAgreementResponse(page, agreementResponse)
   test.info().annotations.push({
     type: 'note',
@@ -91,11 +108,17 @@ export async function coordinatorEmailSchoolInviteToParents(page: Page): Promise
 }
 
 export function resolveProvisioningSchoolName(): string {
-  return (
+  const base =
     process.env.REGISTRO_SCHOOL_NAME?.trim() ||
     process.env.SMOKE_SCHOOL_NAME?.trim() ||
     'Colegio Proton QA'
-  )
+  const suffix = process.env.REGISTRO_SCHOOL_NAME_SUFFIX?.trim()
+  if (suffix) return `${base} ${suffix}`.trim()
+  if (process.env.REGISTRO_ESCUELA_UNIQUE_SCHOOL === '1') {
+    const day = new Date().toISOString().slice(0, 10)
+    return `${base} ${day}`.trim()
+  }
+  return base
 }
 
 /** Admin: Aprobar y activar tras «Completado» (ESCUELA.md C). Sesión admin ya abierta o se usa login previo. */
@@ -125,5 +148,10 @@ export async function adminActivateSchoolLicenseOnDesk(page: Page): Promise<void
   await expect(page.getByText(new RegExp(`Licencia activa para.*${schoolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'))).toBeVisible({
     timeout: 90_000,
   })
-  await expect(page.getByTestId('admin-invite-result')).toBeVisible({ timeout: 30_000 })
+  await captureSchoolInviteCodeFromAdmin(page)
+  test.info().annotations.push({
+    type: 'note',
+    description:
+      'Código escolar capturado tras activar licencia (misma corrida → familia canjea en /access).',
+  })
 }

@@ -36,13 +36,39 @@ export async function submitCoordinatorSchoolPacket(
 ): Promise<void> {
   const acuerdoPath =
     resolveSchoolPacketAcuerdoPath() ?? `/escuela/acuerdo?token=${encodeURIComponent(token)}`
+  const packetGet = page.waitForResponse(
+    (res) =>
+      res.request().method() === 'GET' &&
+      res.url().includes('/school-agreements/packet') &&
+      res.url().includes('token='),
+    { timeout: 45_000 }
+  )
   await page.goto(acuerdoPath, {
     waitUntil: 'domcontentloaded',
   })
   await expect(page.getByRole('heading', { name: 'Acuerdo y comprobante' })).toBeVisible({
     timeout: 30_000,
   })
-  await expect(page.getByTestId('school-packet-form')).toBeVisible({ timeout: 20_000 })
+  const packetResponse = await packetGet
+  expect(
+    packetResponse.ok(),
+    `GET packet falló (${packetResponse.status()}). El token puede estar vencido o el paquete ya fue enviado.`
+  ).toBeTruthy()
+  const packetJson = (await packetResponse.json().catch(() => null)) as { submitted?: boolean } | null
+  if (packetJson?.submitted) {
+    await expect(page.getByRole('heading', { name: 'Documentos enviados' })).toBeVisible({
+      timeout: 15_000,
+    })
+    return
+  }
+  await expect(
+    page.getByText('Este enlace no está vigente. Pide a AstroKid que reenvíe el acuerdo.')
+  ).toHaveCount(0)
+  // IDs de campo estables en prod; data-testid puede no estar desplegado aún en QA.
+  await expect(page.locator('#signer-name')).toBeVisible({ timeout: 30_000 })
+  await expect(
+    page.getByRole('button', { name: 'Enviar acuerdo firmado y comprobante' })
+  ).toBeVisible()
 
   await page.locator('#signer-name').fill(input.signerName)
   await page.locator('#signer-title').fill(input.signerTitle)
@@ -67,8 +93,9 @@ export async function submitCoordinatorSchoolPacket(
   await expect(send).toBeEnabled({ timeout: 10_000 })
   await send.click()
 
-  await expect(page.getByTestId('school-packet-success')).toBeVisible({ timeout: 60_000 })
-  await expect(page.getByText(/Documentos enviados/i)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Documentos enviados' })).toBeVisible({
+    timeout: 60_000,
+  })
 }
 
 export function requireSchoolPacketToken(): string | undefined {

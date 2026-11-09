@@ -643,3 +643,15 @@ export async function assertDashboardPlan(page: Page, plan: string): Promise<voi
   await expect(quota).not.toHaveAttribute('data-quota-plan', 'loading', { timeout: 30_000 })
   await expect(quota).toHaveAttribute('data-quota-plan', plan)
 }
+
+/** Barra de progreso de misiones en dashboard (p. ej. licencia escolar recién canjeada: 0/100). */
+export async function assertDashboardMissionQuotaLabel(
+  page: Page,
+  expectedLabel: string
+): Promise<void> {
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 })
+  const bar = page.getByTestId('mission-quota-label')
+  await expect(bar).toBeVisible({ timeout: 45_000 })
+  await expect(bar).toContainText(expectedLabel, { timeout: 30_000 })
+}

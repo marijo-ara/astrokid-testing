@@ -5,6 +5,7 @@ import type { SmokeAccount } from './smokeAccount'
 import {
   assertAuthenticatedParent,
   assertDashboardPlan,
+  assertDashboardMissionQuotaLabel,
   assertOnboardingWelcomeFirstScreen,
   ensureProvisionedAccount,
   redeemSchoolInviteCode,
@@ -27,6 +28,12 @@ import {
 } from './coordinatorSchoolPacket'
 import { consumeSchoolPacketCaptureFailure } from './schoolPacketCapture'
 import { hasResolvableSchoolPacketLink } from './schoolPacketTokenStore'
+import { resolveSchoolInviteCode, hasResolvableSchoolInviteCode } from './schoolInviteCodeStore'
+import { captureSchoolInviteCodeFromEscuelaDesk } from './schoolInviteCodeCapture'
+import {
+  rememberProvisionedChildGivenName,
+  resolveProvisionedChildGivenName,
+} from './schoolFamilyProvisioningStore'
 import { resolveProvisioningAdmin, resolveProvisioningEmail, PROVISIONING_ROLES } from '../config/provisioningUsers'
 
 /** Caso REG-PROV-01 — visible en el reporte Playwright (annotation type flow). */
@@ -209,31 +216,12 @@ export async function stepAdminCreateSchoolAgreement(page: Page, testInfo: TestI
   testInfo.annotations.push({
     type: 'note',
     description:
-      'Siguiente en suite 03: coordinador sube paquete con el enlace capturado; admin activa; luego escritorio /escuela.',
+      'Siguiente en Activar Licencia Escolar: coordinador sube paquete; admin activa; escritorio /escuela.',
   })
 }
 
 function shouldSendEscuelaAgreementEnv(): boolean {
   return process.env.REGISTRO_ESCUELA_SEND_AGREEMENT !== '0'
-}
-
-/**
- * Suite 03: el acuerdo ya lo envía la 02. Solo verifica que quedó el enlace capturado (memoria + .cache).
- */
-export async function stepAssertSchoolPacketLinkReady(testInfo: TestInfo): Promise<void> {
-  await test.step(
-    'Preflight: enlace /escuela/acuerdo capturado en suite 02 → sin reenviar acuerdo',
-    async () => {
-      expect(
-        hasResolvableSchoolPacketLink(),
-        'Falta enlace de coordinador: corré antes 02-admin «enviar acuerdo» (02 antes que 03). Render QA: SCHOOL_AGREEMENT_QA_COORDINATOR_LINK=1.'
-      ).toBe(true)
-    }
-  )
-  testInfo.annotations.push({
-    type: 'note',
-    description: 'El coordinador usa el token dinámico guardado al enviar el acuerdo en la suite 02.',
-  })
 }
 
 /** Coordinador sube acuerdo firmado + comprobante en /escuela/acuerdo?token=… */
@@ -244,7 +232,7 @@ export async function stepCoordinatorSubmitSchoolPacket(
   const token = requireSchoolPacketToken()
   expect(
     token,
-    'Sin token /escuela/acuerdo: ejecutá antes el test [Admin preflight] (misma suite 03, en serie) o la suite 02.'
+    'Sin token /escuela/acuerdo: ejecutá antes «crear escuela: enviar acuerdo» en Activar Licencia Escolar (misma corrida en serie).'
   ).toBeTruthy()
   if (!token) return
   const input = defaultCoordinatorPacketInput(coordinatorEmail)
@@ -358,6 +346,8 @@ export async function stepCoordinatorRegisterSchoolFamily(
         'Familia escolar (suite 05): canjear en /access con el código del correo o REGISTRO_SCHOOL_INVITE_CODE.',
     })
   }
+
+  await captureSchoolInviteCodeFromEscuelaDesk(page)
 }
 
 export async function stepCoordinatorEscuelaDesk(
@@ -409,21 +399,99 @@ export async function stepCoordinatorEscuelaDesk(
   }
 }
 
+/** Familia escolar: sesión → /access canje → dashboard con barra de misiones. */
+export async function stepSchoolFamilyRedeemAccessAndQuota(
+  page: Page,
+  schoolParentEmail: string,
+  password: string,
+  roleLabel: string,
+  options: { quotaLabel?: string; expectedPlan?: string } = {}
+): Promise<void> {
+  const code = resolveSchoolInviteCode()
+  expect(
+    code,
+    'Sin código escolar: corré antes «activar licencia» (admin) en esta suite o define REGISTRO_SCHOOL_INVITE_CODE.'
+  ).toBeTruthy()
+  if (!code) return
+
+  const quotaLabel = options.quotaLabel ?? '0/100'
+  const expectedPlan = options.expectedPlan ?? 'institutional_capped'
+
+  await test.step(
+    `Acción: login familia ${schoolParentEmail} → /access → canje → Esperado: barra ${quotaLabel}`,
+    async () => {
+      await stepSignOutForNextAccount(page)
+      const outcome = await stepEnsureAccount(page, schoolParentEmail, password)
+      expect(outcome, `${roleLabel}: confirmar correo antes de canjear.`).not.toBe('confirm_email')
+      if (outcome === 'confirm_email') return
+
+      await page.goto('/access', { waitUntil: 'domcontentloaded' })
+      await expect(page).toHaveURL(/access/, { timeout: 20_000 })
+      await redeemSchoolInviteCode(page, code)
+      await expect(page.getByTestId('access-status')).toContainText(/activo|active/i, {
+        timeout: 30_000,
+      })
+      await assertDashboardMissionQuotaLabel(page, quotaLabel)
+      const planAttr = page.locator('[data-quota-plan]').first()
+      await expect(planAttr).toHaveAttribute('data-quota-plan', expectedPlan, { timeout: 30_000 })
+
+      const childLocator = page.locator('[data-testid="child-name"]').first()
+      if (await childLocator.isVisible({ timeout: 8_000 }).catch(() => false)) {
+        const childName = (await childLocator.textContent())?.trim()
+        if (childName) rememberProvisionedChildGivenName(childName)
+      }
+    }
+  )
+}
+
+/** Coordinador: familia canjeada visible en cupos con el niño del perfil. */
+export async function stepCoordinatorAssertRedeemedSchoolFamily(
+  page: Page,
+  coordinatorLabel: string,
+  schoolParentEmail: string
+): Promise<void> {
+  const parentGiven = process.env.REGISTRO_ESCUELA_PARENT_GIVEN?.trim() || 'Familia'
+  const parentFamily = process.env.REGISTRO_ESCUELA_PARENT_FAMILY?.trim() || 'Proton'
+  const childGiven = resolveProvisionedChildGivenName()
+
+  await test.step(
+    `Acción: /escuela (${coordinatorLabel}) → Esperado: familia activa y niño «${childGiven}»`,
+    async () => {
+      await page.goto('/escuela', { waitUntil: 'domcontentloaded' })
+      await expect(
+        page.getByRole('heading', { name: /Guía de alineación|School alignment/i })
+      ).toBeVisible({ timeout: 25_000 })
+      await expect(page.getByTestId('school-license-desk')).toBeVisible({ timeout: 30_000 })
+
+      const roster = page.getByTestId('school-parent-roster')
+      await expect(roster).toContainText(schoolParentEmail, { timeout: 20_000 })
+      await expect(roster).toContainText(parentGiven)
+
+      await expect(page.getByTestId('school-parent-pending')).toHaveCount(0)
+
+      const seats = page.getByTestId('school-family-seats')
+      await expect(seats).toContainText(/Licencia escolar|School license/i, { timeout: 30_000 })
+      await expect(seats).toContainText(childGiven, { timeout: 30_000 })
+    }
+  )
+}
+
 export async function stepRedeemSchoolInviteIfConfigured(
   page: Page,
   schoolCode: string | undefined
 ): Promise<void> {
-  if (!schoolCode) {
+  const code = schoolCode?.trim() || resolveSchoolInviteCode()
+  if (!code) {
     test.info().annotations.push({
       type: 'manual',
-      description: 'Definir REGISTRO_SCHOOL_INVITE_CODE para canjear licencia en /access.',
+      description: 'Definir REGISTRO_SCHOOL_INVITE_CODE o correr Activar Licencia Escolar hasta activar/registrar familia.',
     })
     return
   }
   await test.step(
     `Acción: canjear código escolar en /access → Esperado: mensaje de código canjeado`,
     async () => {
-      await redeemSchoolInviteCode(page, schoolCode)
+      await redeemSchoolInviteCode(page, code)
     }
   )
 }

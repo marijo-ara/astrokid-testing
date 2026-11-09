@@ -1,18 +1,17 @@
 # REG-PROV — Registrar usuarios (QA)
 
-Suites Playwright (`@provisioning`), **numeradas 01–06** para orden en la UI de Playwright (cada archivo corre sola sin bloquear las demás):
+Suites Playwright (`@provisioning`), orden en la UI por prefijo `01-provisioning/` (cada archivo corre sola salvo **Activar Licencia Escolar**, 8 pasos en serie):
 
 | # | Rol | Archivo |
 | --- | --- | --- |
 | 01 | Diagnóstico Firebase | `Web.E2E/specs/01-provisioning/01-firebase-key-smoke.spec.ts` |
-| 02 | Admin plataforma | `Web.E2E/specs/01-provisioning/02-admin-plataforma.spec.ts` (**crear escuela**: envío de acuerdo) |
-| 03 | Coordinador escuela | `03-coordinador-escuela.spec.ts` — preflight solo **verifica** URL capturada en **02**; coordinador **subir acuerdo** |
-| 04 | Familia Free | `Web.E2E/specs/01-provisioning/04-familia-free.spec.ts` |
-| 05 | Familia escolar | `Web.E2E/specs/01-provisioning/05-familia-escolar.spec.ts` |
-| 06 | Familia Premium | `Web.E2E/specs/01-provisioning/06-familia-premium.spec.ts` |
+| 02 | Activar licencia escolar | `Web.E2E/specs/01-provisioning/02-activar-licencia-escolar.spec.ts` — **8 pruebas en serie**: admin, acuerdo, coordinador, activación, familia en `/access` (0/100), cierre en `/escuela` |
+| 03 | Familia Free | `Web.E2E/specs/01-provisioning/04-familia-free.spec.ts` |
+| 04 | Familia escolar | `Web.E2E/specs/01-provisioning/05-familia-escolar.spec.ts` |
+| 05 | Familia Premium | `Web.E2E/specs/01-provisioning/06-familia-premium.spec.ts` |
 
-`npm run test:provisioning` ejecuta 01–06. Ejemplo solo admin:  
-`npx playwright test specs/01-provisioning/02-admin-plataforma.spec.ts`
+`npm run test:provisioning` ejecuta 01–05 (suites en disco 01, 02, 04–06). Ejemplo licencia escolar:  
+`npx playwright test specs/01-provisioning/02-activar-licencia-escolar.spec.ts`
 
 Cada test adjunta el flujo **REG-PROV-01 / REG-PROV-02** (annotation `flow`) y los `test.step` siguen **Acción → Esperado**. Helpers: `Web.E2E/helpers/provisioningTestSteps.ts`.  
 Actores de todas las suites (no solo provisioning): [`E2E_ACTORES_QA.md`](E2E_ACTORES_QA.md).

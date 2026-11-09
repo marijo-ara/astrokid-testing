@@ -30,10 +30,9 @@ Servicio: **astro-kid-backend-1** (`srv-d85r9r3tqb8s73fegu1g`).
 
 ## Orden de provisioning
 
-1. `02-admin-plataforma` → enviar acuerdo (captura enlace vía endpoint QA).
-2. `03-coordinador-escuela` → preflight verifica caché → coordinador sube PDF.
+1. `02-activar-licencia-escolar` → flujo completo (8 pruebas): enviar acuerdo, coordinador sube PDF, activar, familia en `/access`, etc.
 
-`npm run test:provisioning` usa un worker (`PLAYWRIGHT_WORKERS=1`) para que 02 corra antes que 03.
+`npm run test:provisioning` usa un worker (`PLAYWRIGHT_WORKERS=1`). La suite **Activar Licencia Escolar** debe correr entera en serie.
 
 ## Depuración manual
 
