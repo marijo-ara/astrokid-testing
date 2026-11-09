@@ -17,9 +17,60 @@ export type SendSchoolAgreementInput = {
   students?: string
 }
 
+export type ParentDeskListState = 'roster' | 'pending' | 'none'
+
 /**
- * Tarjeta de licencia en el escritorio del coordinador.
- * Prioridad: correo del padre (post-canje) → colegio de la corrida → último colegio con el mismo base en QA.
+ * Una sola tarjeta de licencia en /escuela (sin `.or()` — evita strict mode con 2 matches).
+ * Si el nombre exacto de la corrida no aparece, prueba base del colegio y el último artículo.
+ */
+export async function resolveCoordinatorLicenseCard(
+  page: Page,
+  options?: { parentEmail?: string }
+): Promise<Locator> {
+  const desk = page.getByTestId('school-license-desk')
+  const parentEmail = options?.parentEmail?.trim()
+
+  if (parentEmail) {
+    const scoped = desk
+      .locator('article')
+      .filter({ hasText: parentEmail })
+      .getByTestId('school-license-card')
+    const scopedCount = await scoped.count()
+    if (scopedCount === 1) return scoped
+    if (scopedCount > 1) {
+      const schoolName = resolveProvisioningSchoolName()
+      const narrowed = desk
+        .locator('article')
+        .filter({ hasText: schoolName })
+        .filter({ hasText: parentEmail })
+        .getByTestId('school-license-card')
+        .first()
+      if ((await narrowed.count()) > 0) return narrowed
+      return scoped.first()
+    }
+  }
+
+  const schoolName = resolveProvisioningSchoolName()
+  const byRunName = desk.locator('article').filter({ hasText: schoolName }).getByTestId('school-license-card')
+  const runCount = await byRunName.count()
+  if (runCount === 1) return byRunName
+  if (runCount > 1) return byRunName.first()
+
+  const base = resolveSchoolNameBase()
+  const byBase = desk.locator('article').filter({ hasText: base }).getByTestId('school-license-card')
+  const baseCount = await byBase.count()
+  if (baseCount === 1) return byBase
+  if (baseCount > 1) return byBase.last()
+
+  const anyCard = desk.getByTestId('school-license-card')
+  const anyCount = await anyCard.count()
+  expect(anyCount, 'El escritorio escolar debe mostrar al menos una licencia activa.').toBeGreaterThan(0)
+  return anyCard.first()
+}
+
+/**
+ * Tarjeta de licencia (solo uso con `parentEmail` o cuando QA tiene un solo colegio de la corrida).
+ * Preferir `resolveCoordinatorLicenseCard` en flows con re-ejecución en QA.
  */
 export function coordinatorLicenseCardLocator(
   page: Page,
@@ -31,24 +82,32 @@ export function coordinatorLicenseCardLocator(
     return desk.getByTestId('school-license-card').filter({ hasText: parentEmail }).first()
   }
   const schoolName = resolveProvisioningSchoolName()
-  const base = resolveSchoolNameBase()
   return desk
     .locator('article')
     .filter({ hasText: schoolName })
     .getByTestId('school-license-card')
     .first()
-    .or(desk.locator('article').filter({ hasText: base }).last().getByTestId('school-license-card').first())
-    .or(desk.getByTestId('school-license-card').first())
 }
 
-/** @deprecated use coordinatorLicenseCardLocator */
+/** @deprecated use resolveCoordinatorLicenseCard */
 export function coordinatorLicenseCardForProvisioningRun(page: Page) {
   return coordinatorLicenseCardLocator(page)
 }
 
-/** Formulario «Agregar padre» de la licencia activa de esta corrida (evita 2+ colegios en QA). */
-function coordinatorParentListForm(page: Page) {
-  return coordinatorLicenseCardLocator(page).getByTestId('school-parent-list')
+export async function parentDeskListState(
+  card: Locator,
+  parentEmail: string
+): Promise<ParentDeskListState> {
+  const email = parentEmail.trim()
+  const roster = card.getByTestId('school-parent-roster').filter({ hasText: email })
+  if (await roster.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    return 'roster'
+  }
+  const pending = card.getByTestId('school-parent-pending').filter({ hasText: email })
+  if (await pending.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return 'pending'
+  }
+  return 'none'
 }
 
 /** ESCUELA.md A.1–A.4: formulario en /admin/licenses (sesión admin ya abierta). */
@@ -71,7 +130,7 @@ export async function submitSchoolAgreementForm(
   await page.locator('#school-name').fill(input.schoolName)
   await page.locator('#school-email').fill(input.coordinatorEmail)
   if (input.families) await page.locator('#school-seats').fill(input.families)
-  if (input.students)   await page.locator('#school-students').fill(input.students)
+  if (input.students) await page.locator('#school-students').fill(input.students)
 
   const captureUpload = page.waitForResponse(
     (res) =>
@@ -118,7 +177,10 @@ export async function adminSendSchoolAgreement(
   await submitSchoolAgreementForm(page, input)
 }
 
-/** Cuando la licencia ya está activa: coordinador agrega el correo de la familia escolar a la lista. */
+/**
+ * Licencia activa: agrega el correo de familia escolar si aún no está en roster ni pendientes.
+ * Idempotente en QA (re-ejecuciones de la suite).
+ */
 export async function coordinatorRegisterParentEmail(
   page: Page,
   parentEmail: string,
@@ -128,7 +190,26 @@ export async function coordinatorRegisterParentEmail(
   const desk = page.getByTestId('school-license-desk')
   await expect(desk).toBeVisible({ timeout: 20_000 })
 
-  const addForm = coordinatorParentListForm(page)
+  const card = await resolveCoordinatorLicenseCard(page, { parentEmail })
+  await expect(card).toBeVisible({ timeout: 15_000 })
+
+  const listState = await parentDeskListState(card, parentEmail)
+  if (listState === 'roster') {
+    test.info().annotations.push({
+      type: 'note',
+      description: `Skip agregar padre: ${parentEmail} ya figura en el roster del colegio (código enviado o canjeado).`,
+    })
+    return
+  }
+  if (listState === 'pending') {
+    test.info().annotations.push({
+      type: 'note',
+      description: `Skip agregar padre: ${parentEmail} ya está en la lista de pendientes por enviar.`,
+    })
+    return
+  }
+
+  const addForm = card.getByTestId('school-parent-list')
   await expect(addForm).toBeVisible({ timeout: 15_000 })
 
   await addForm.getByLabel(/Nombre|Given name/i).fill(givenName)
@@ -136,15 +217,44 @@ export async function coordinatorRegisterParentEmail(
   await addForm.locator('input[type="email"]').fill(parentEmail)
   await addForm.getByRole('button', { name: /Agregar padre|Add parent/i }).click()
 
+  const alreadyListedBanner = page.getByText(
+    /Ese correo ya está en la lista|That email is already on the list/i
+  )
+  if (await alreadyListedBanner.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    test.info().annotations.push({
+      type: 'note',
+      description: `UI: ${parentEmail} ya estaba en la lista del colegio.`,
+    })
+    return
+  }
+
   await expect(addForm.getByTestId('school-parent-pending')).toContainText(parentEmail, {
     timeout: 15_000,
   })
 }
 
-/** Tras agregar padres pendientes, envía el correo con el código de canje. */
-export async function coordinatorEmailSchoolInviteToParents(page: Page): Promise<void> {
-  const addForm = coordinatorParentListForm(page)
+/** Tras agregar padres pendientes, envía el correo con el código de canje (skip si no hay pendientes). */
+export async function coordinatorEmailSchoolInviteToParents(
+  page: Page,
+  parentEmail?: string
+): Promise<void> {
+  const card = await resolveCoordinatorLicenseCard(page, {
+    parentEmail: parentEmail?.trim(),
+  })
+  const addForm = card.getByTestId('school-parent-list')
   await expect(addForm).toBeVisible({ timeout: 20_000 })
+
+  const pending = addForm.getByTestId('school-parent-pending')
+  const hasPending = await pending.isVisible({ timeout: 3_000 }).catch(() => false)
+  if (!hasPending) {
+    test.info().annotations.push({
+      type: 'note',
+      description:
+        'Skip enviar código: no hay padres pendientes (posible re-ejecución o familia ya en roster).',
+    })
+    return
+  }
+
   const send = addForm.getByRole('button', {
     name: /Enviar el código a estos padres|Email the code to these parents/i,
   })

@@ -17,10 +17,10 @@ import {
 import {
   adminSendSchoolAgreement,
   coordinatorRegisterParentEmail,
-  coordinatorLicenseCardLocator,
+  coordinatorEmailSchoolInviteToParents,
+  resolveCoordinatorLicenseCard,
   resolveProvisioningSchoolName,
   adminActivateSchoolLicenseOnDesk,
-  coordinatorEmailSchoolInviteToParents,
   submitSchoolAgreementForm,
   type SendSchoolAgreementInput,
 } from './schoolProvisioning'
@@ -335,7 +335,7 @@ export async function stepCoordinatorRegisterSchoolFamily(
   const given = process.env.REGISTRO_ESCUELA_PARENT_GIVEN?.trim() || 'Familia'
   const family = process.env.REGISTRO_ESCUELA_PARENT_FAMILY?.trim() || 'Proton'
   await test.step(
-    `Acción: agregar familia escolar ${schoolParentEmail} → Esperado: pendiente en lista`,
+    `Acción: agregar familia escolar ${schoolParentEmail} → Esperado: roster, pendiente o alta nueva`,
     async () => {
       await coordinatorRegisterParentEmail(page, schoolParentEmail, given, family)
     }
@@ -346,7 +346,7 @@ export async function stepCoordinatorRegisterSchoolFamily(
     await test.step(
       'Acción: Enviar el código a estos padres → Esperado: aviso de envío',
       async () => {
-        await coordinatorEmailSchoolInviteToParents(page)
+        await coordinatorEmailSchoolInviteToParents(page, schoolParentEmail)
       }
     )
     test.info().annotations.push({
@@ -490,7 +490,7 @@ export async function stepCoordinatorAssertRedeemedSchoolFamily(
       await expect(roster).toBeVisible({ timeout: 20_000 })
       await expect(roster).toContainText(parentGiven)
 
-      const card = coordinatorLicenseCardLocator(page, { parentEmail })
+      const card = await resolveCoordinatorLicenseCard(page, { parentEmail })
       await expect(card).toBeVisible({ timeout: 20_000 })
 
       const seats = card.getByTestId('school-family-seats')

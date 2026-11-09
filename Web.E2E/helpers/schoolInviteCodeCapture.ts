@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test'
 import { rememberSchoolInviteCode } from './schoolInviteCodeStore'
+import { resolveCoordinatorLicenseCard } from './schoolProvisioning'
 
 const INVITE_LINE =
   /(?:Código para familias|Family code):\s*([A-Za-z0-9][A-Za-z0-9_-]*)/i
@@ -39,7 +40,7 @@ export async function captureSchoolInviteCodeFromEscuelaDesk(page: Page): Promis
   const desk = page.getByTestId('school-license-desk')
   const code = parseInviteCodeFromText(await desk.innerText())
   rememberSchoolInviteCode(code)
-  const card = desk.getByTestId('school-license-card').first()
+  const card = await resolveCoordinatorLicenseCard(page)
   if (await card.isVisible({ timeout: 3_000 }).catch(() => false)) {
     const fromCard = parseInviteCodeFromText(await card.innerText())
     rememberSchoolInviteCode(fromCard)
