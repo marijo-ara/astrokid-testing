@@ -47,7 +47,7 @@ import {
   adminActivatePremiumSinpeOnDesk,
   premiumFamilySubmitSinpeOnAccess,
 } from './premiumSinpeProvisioning'
-import { requirePremiumSinpePaymentReference } from './premiumSinpeRunStore'
+import { peekPremiumSinpePaymentReference } from './premiumSinpeRunStore'
 
 /** Caso REG-PROV-01 — visible en el reporte Playwright (annotation type flow). */
 export const PROVISIONING_FLOW_TC01 = `
@@ -612,10 +612,12 @@ export async function stepAdminActivatePremiumSinpe(page: Page, testInfo: TestIn
     test.skip(true, 'Sin SMOKE_ADMIN_EMAIL / REGISTRO_ADMIN_EMAIL.')
     return
   }
-  const reference = requirePremiumSinpePaymentReference()
+  const premiumRole = PROVISIONING_ROLES.find((r) => r.id === 'familia_premium')
+  const parentEmail = premiumRole ? resolveProvisioningEmail(premiumRole) : undefined
+  const reference = peekPremiumSinpePaymentReference()
 
   await test.step(
-    `Acción: admin activa Premium SINPE (ref ${reference}) → Esperado: Premium activado`,
+    `Acción: admin activa Premium SINPE → Esperado: Premium activado`,
     async () => {
       await stepSignOutForNextAccount(page)
       const outcome = await stepEnsureAccount(page, admin.email, admin.password)
@@ -625,7 +627,10 @@ export async function stepAdminActivatePremiumSinpe(page: Page, testInfo: TestIn
         return
       }
       await stepAssertParentSession(page, 'Admin plataforma')
-      await adminActivatePremiumSinpeOnDesk(page, reference)
+      await adminActivatePremiumSinpeOnDesk(page, {
+        paymentReference: reference || undefined,
+        parentEmail,
+      })
     }
   )
 }
