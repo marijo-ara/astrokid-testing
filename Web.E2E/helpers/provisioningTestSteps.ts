@@ -43,6 +43,11 @@ import {
   provisioningRunSuffix,
   runProvisioningFamilyOnboardingWizard,
 } from './freeFamilyOnboarding'
+import {
+  adminActivatePremiumSinpeOnDesk,
+  premiumFamilySubmitSinpeOnAccess,
+} from './premiumSinpeProvisioning'
+import { requirePremiumSinpePaymentReference } from './premiumSinpeRunStore'
 
 /** Caso REG-PROV-01 — visible en el reporte Playwright (annotation type flow). */
 export const PROVISIONING_FLOW_TC01 = `
@@ -549,19 +554,15 @@ async function assertDashboardPlanForRole(page: Page, role: ProvisioningRole): P
   if (!plan) {
     throw new Error(`Rol ${role.id} sin expectedPlan en provisioning.`)
   }
-  try {
-    await assertDashboardPlan(page, plan)
-  } catch (err) {
-    if (role.id === 'familia_premium') {
-      test.info().annotations.push({
-        type: 'manual',
-        description: 'Premium: activar en /access (checkout) o vía soporte.',
-      })
-      expect.soft(false, 'Plan premium aún no es premium_unlimited.').toBe(true)
-      return
-    }
-    throw err
+  if (role.id === 'familia_premium') {
+    test.info().annotations.push({
+      type: 'note',
+      description:
+        'Premium: el plan premium_unlimited se valida tras SINPE + activación admin (pasos siguientes en 06).',
+    })
+    return
   }
+  await assertDashboardPlan(page, plan)
 }
 
 /** Si no hay hijo, onboarding con datos de prueba; si ya hay, valida el plan del rol. */
@@ -593,6 +594,53 @@ export async function stepEnsureFamilyChildAndPlan(page: Page, role: Provisionin
 /** @deprecated Usar stepEnsureFamilyChildAndPlan */
 export const stepEnsureFreeFamilyChildAndPlan = stepEnsureFamilyChildAndPlan
 
+/** Familia premium: envía comprobante SINPE en /access (sesión padre abierta o previo login). */
+export async function stepPremiumFamilySubmitSinpeProof(page: Page): Promise<void> {
+  await test.step(
+    'Acción: /access → adjuntar pantallazo SINPE → Esperado: comprobante recibido',
+    async () => {
+      await premiumFamilySubmitSinpeOnAccess(page)
+    }
+  )
+}
+
+/** Admin activa Premium tras comprobante SINPE del padre premium. */
+export async function stepAdminActivatePremiumSinpe(page: Page, testInfo: TestInfo): Promise<void> {
+  annotateQaActors(testInfo, 'admin_plataforma', 'firebase_login')
+  const admin = resolveProvisioningAdmin()
+  if (!admin) {
+    test.skip(true, 'Sin SMOKE_ADMIN_EMAIL / REGISTRO_ADMIN_EMAIL.')
+    return
+  }
+  const reference = requirePremiumSinpePaymentReference()
+
+  await test.step(
+    `Acción: admin activa Premium SINPE (ref ${reference}) → Esperado: Premium activado`,
+    async () => {
+      await stepSignOutForNextAccount(page)
+      const outcome = await stepEnsureAccount(page, admin.email, admin.password)
+      if (outcome === 'confirm_email') {
+        stepAnnotateConfirmEmail(testInfo, 'Admin plataforma', admin.email)
+        expect.soft(false, 'Admin: confirmar correo antes de activar Premium SINPE.').toBe(true)
+        return
+      }
+      await stepAssertParentSession(page, 'Admin plataforma')
+      await adminActivatePremiumSinpeOnDesk(page, reference)
+    }
+  )
+}
+
+export async function stepAssertPremiumFamilyPlan(page: Page, role: ProvisioningRole): Promise<void> {
+  const plan = role.expectedPlan ?? 'premium_unlimited'
+  await test.step(
+    `Validación: ${role.label} → data-quota-plan="${plan}" en dashboard`,
+    async () => {
+      await page.goto('/dashboard')
+      await assertDashboardPlan(page, plan)
+    }
+  )
+}
+
 export async function stepAssertDashboardPlanWithFallback(
   page: Page,
   role: ProvisioningRole
@@ -617,10 +665,9 @@ export async function stepAssertDashboardPlanWithFallback(
         }
         if (role.id === 'familia_premium') {
           test.info().annotations.push({
-            type: 'manual',
-            description: 'Premium: activar en /access (checkout) o vía soporte.',
+            type: 'note',
+            description: 'Premium: completar SINPE + activación admin antes de validar premium_unlimited.',
           })
-          expect.soft(false, 'Plan premium aún no es premium_unlimited.').toBe(true)
           return
         }
         throw new Error(`Plan esperado ${plan} no coincide en dashboard.`)

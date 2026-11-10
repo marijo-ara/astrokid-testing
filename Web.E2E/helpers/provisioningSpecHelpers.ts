@@ -24,3 +24,7 @@ export function shouldCoordinatorRegisterParent(): boolean {
 export function shouldAdminActivateSchoolLicense(): boolean {
   return process.env.REGISTRO_ESCUELA_ADMIN_ACTIVATE !== '0'
 }
+
+export function shouldAdminActivatePremiumSinpe(): boolean {
+  return process.env.REGISTRO_PREMIUM_ADMIN_ACTIVATE !== '0'
+}
