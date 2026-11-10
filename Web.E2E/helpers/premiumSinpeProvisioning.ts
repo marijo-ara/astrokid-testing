@@ -51,6 +51,7 @@ export async function premiumFamilySubmitSinpeFromDashboard(page: Page): Promise
   const pending = page.getByTestId('premium-sinpe-pending')
   if (await pending.isVisible().catch(() => false)) {
     await expect(pending).toContainText(/en revisión|under review/i)
+    // Sin ref en store: el admin usa parentEmail enmascarado.
     test.info().annotations.push({
       type: 'note',
       description: 'Comprobante SINPE ya en revisión; no se reenvía en esta corrida.',
@@ -90,28 +91,51 @@ export type AdminActivatePremiumSinpeOptions = {
   parentEmail?: string
 }
 
+/**
+ * Espera datos reales del fetch admin.
+ * - `empty` sale en el primer paint (pending=[]) → no es “ya activado”.
+ * - El aviso arriba (`notice`) llega con el fetch; la cola puede estar bajo el fold.
+ */
+async function waitForPremiumSinpeQueue(page: Page) {
+  const section = page.getByTestId('admin-premium-sinpe-section')
+  const notice = page.getByTestId('admin-premium-sinpe-notice')
+  const queue = page.getByTestId('admin-premium-sinpe-queue')
+  const empty = page.getByTestId('admin-premium-sinpe-empty')
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await expect(section).toBeVisible({ timeout: 30_000 })
+    // expect() sí espera el attach; isVisible({timeout}) no bastaba aquí.
+    await expect(notice.or(empty)).toBeVisible({ timeout: 60_000 })
+
+    if (await notice.isVisible().catch(() => false)) {
+      await expect(queue).toBeVisible({ timeout: 15_000 })
+      await queue.scrollIntoViewIfNeeded()
+      return queue
+    }
+
+    if (attempt === 0) {
+      test.info().annotations.push({
+        type: 'note',
+        description:
+          'Admin mostró empty tras el fetch; una recarga por si el pending llegó tarde.',
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      continue
+    }
+  }
+
+  throw new Error(
+    'Cola Premium SINPE vacía tras el comprobante. No se activa Premium (el early-return por empty se eliminó). Revisá submit o GET /admin/premium-sinpe/pending.'
+  )
+}
+
 /** Admin: activa fila por referencia o por correo enmascarado del padre QA. */
 export async function adminActivatePremiumSinpeOnDesk(
   page: Page,
   options: AdminActivatePremiumSinpeOptions = {}
 ): Promise<void> {
   await page.goto('/admin/licenses')
-  await expect(page.getByTestId('admin-premium-sinpe-section')).toBeVisible({ timeout: 30_000 })
-
-  const empty = page.getByTestId('admin-premium-sinpe-empty')
-  if (await empty.isVisible().catch(() => false)) {
-    test.info().annotations.push({
-      type: 'note',
-      description: 'Cola Premium SINPE vacía (¿Premium ya activado en corrida anterior?).',
-    })
-    return
-  }
-
-  const notice = page.getByTestId('admin-premium-sinpe-notice')
-  await expect(notice).toBeVisible({ timeout: 45_000 })
-
-  const queue = page.getByTestId('admin-premium-sinpe-queue')
-  await expect(queue).toBeVisible({ timeout: 20_000 })
+  const queue = await waitForPremiumSinpeQueue(page)
 
   const ref = options.paymentReference?.trim()
   let row = queue.locator('li').first()
@@ -123,6 +147,7 @@ export async function adminActivatePremiumSinpeOnDesk(
   }
 
   await expect(row).toBeVisible({ timeout: 45_000 })
+  await row.scrollIntoViewIfNeeded()
   const rowText = (await row.textContent()) ?? ''
 
   const activate = row.getByRole('button', { name: 'Activar Premium' })
