@@ -38,6 +38,11 @@ import {
   resolveProvisionedChildGivenName,
 } from './schoolFamilyProvisioningStore'
 import { resolveProvisioningAdmin, resolveProvisioningEmail, PROVISIONING_ROLES } from '../config/provisioningUsers'
+import {
+  familyNeedsChildOnboarding,
+  provisioningRunSuffix,
+  runFreeFamilyOnboardingWizard,
+} from './freeFamilyOnboarding'
 
 /** Caso REG-PROV-01 — visible en el reporte Playwright (annotation type flow). */
 export const PROVISIONING_FLOW_TC01 = `
@@ -535,6 +540,31 @@ export async function stepRedeemSchoolInviteIfConfigured(
     `Acción: canjear código escolar en /access → Esperado: mensaje de código canjeado`,
     async () => {
       await redeemSchoolInviteCode(page, code)
+    }
+  )
+}
+
+export async function stepEnsureFreeFamilyChildAndPlan(page: Page, role: ProvisioningRole): Promise<void> {
+  await test.step(
+    `Validación: ${role.label} → hijo en dashboard u onboarding de prueba, luego plan ${role.expectedPlan}`,
+    async () => {
+      const needsOnboarding = await familyNeedsChildOnboarding(page)
+      if (!needsOnboarding) {
+        test.info().annotations.push({
+          type: 'note',
+          description: 'Familia Free ya tiene hijo registrado; se valida el plan sin onboarding.',
+        })
+        await assertDashboardPlan(page, role.expectedPlan!)
+        return
+      }
+
+      const runSuffix = provisioningRunSuffix()
+      test.info().annotations.push({
+        type: 'note',
+        description: `Onboarding Familia Free con datos de prueba (corrida ${runSuffix}).`,
+      })
+      await runFreeFamilyOnboardingWizard(page, runSuffix)
+      await assertDashboardPlan(page, role.expectedPlan!)
     }
   )
 }
