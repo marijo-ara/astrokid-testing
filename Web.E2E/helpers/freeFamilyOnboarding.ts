@@ -136,8 +136,8 @@ async function submitParentalConsent(page: Page): Promise<void> {
   await modal.getByRole('button', { name: /Dar consentimiento|Give consent/i }).click()
 }
 
-/** Wizard completo del hijo (cuenta Familia Free sin niños). */
-export async function runFreeFamilyOnboardingWizard(page: Page, runSuffix: string): Promise<void> {
+/** Wizard del primer hijo (cualquier familia provisioning sin niños). */
+export async function runProvisioningFamilyOnboardingWizard(page: Page, runSuffix: string): Promise<void> {
   await page.goto('/onboarding', { waitUntil: 'domcontentloaded' })
 
   const state = await waitForFamilyProfileState(page)

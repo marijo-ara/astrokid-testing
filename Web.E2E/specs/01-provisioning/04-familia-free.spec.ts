@@ -14,7 +14,7 @@ import {
   runProvisionPersona,
   stepAnnotateConfirmEmail,
   stepAssertParentSession,
-  stepEnsureFreeFamilyChildAndPlan,
+  stepEnsureFamilyChildAndPlan,
   stepEnsureAccount,
   stepSignOutForNextAccount,
 } from '../../helpers/provisioningTestSteps'
@@ -52,6 +52,6 @@ test.describe('04 — Familia Free @provisioning', () => {
     }
 
     await stepAssertParentSession(page, role.label)
-    await stepEnsureFreeFamilyChildAndPlan(page, role)
+    await stepEnsureFamilyChildAndPlan(page, role)
   })
 })

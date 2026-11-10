@@ -13,8 +13,8 @@ import {
   attachProvisioningFlow,
   runProvisionPersona,
   stepAnnotateConfirmEmail,
-  stepAssertDashboardPlanWithFallback,
   stepAssertParentSession,
+  stepEnsureFamilyChildAndPlan,
   stepEnsureAccount,
   stepSignOutForNextAccount,
 } from '../../helpers/provisioningTestSteps'
@@ -36,7 +36,7 @@ test.describe('06 — Familia Premium @provisioning', () => {
     await runProvisionPersona(page, testInfo, persona!)
   })
 
-  test(qaTitle(['familia_premium'], 'validar rol: plan premium en dashboard'), async ({ page }, testInfo) => {
+  test(qaTitle(['familia_premium'], 'validar rol: onboarding hijo o plan premium en dashboard'), async ({ page }, testInfo) => {
     skipUnlessProvisioningQaReady()
     attachProvisioningFlow(testInfo, 'REG-PROV-02', PROVISIONING_FLOW_TC02)
 
@@ -52,6 +52,6 @@ test.describe('06 — Familia Premium @provisioning', () => {
     }
 
     await stepAssertParentSession(page, role.label)
-    await stepAssertDashboardPlanWithFallback(page, role)
+    await stepEnsureFamilyChildAndPlan(page, role)
   })
 })

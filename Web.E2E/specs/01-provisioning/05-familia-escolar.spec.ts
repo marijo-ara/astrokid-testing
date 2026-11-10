@@ -13,8 +13,8 @@ import {
   attachProvisioningFlow,
   runProvisionPersona,
   stepAnnotateConfirmEmail,
-  stepAssertDashboardPlanWithFallback,
   stepAssertParentSession,
+  stepEnsureFamilyChildAndPlan,
   stepEnsureAccount,
   stepRedeemSchoolInviteIfConfigured,
   stepSignOutForNextAccount,
@@ -37,7 +37,9 @@ test.describe('05 — Familia licencia escolar @provisioning', () => {
     await runProvisionPersona(page, testInfo, persona!)
   })
 
-  test(qaTitle(['familia_escolar'], 'validar rol: canje y plan institucional'), async ({ page }, testInfo) => {
+  test(qaTitle(['familia_escolar'], 'validar rol: canje, onboarding hijo o plan institucional'), async ({
+    page,
+  }, testInfo) => {
     skipUnlessProvisioningQaReady()
     attachProvisioningFlow(testInfo, 'REG-PROV-02', PROVISIONING_FLOW_TC02)
 
@@ -55,6 +57,6 @@ test.describe('05 — Familia licencia escolar @provisioning', () => {
 
     await stepAssertParentSession(page, role.label)
     await stepRedeemSchoolInviteIfConfigured(page, schoolCode)
-    await stepAssertDashboardPlanWithFallback(page, role)
+    await stepEnsureFamilyChildAndPlan(page, role)
   })
 })

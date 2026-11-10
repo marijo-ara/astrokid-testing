@@ -41,7 +41,7 @@ import { resolveProvisioningAdmin, resolveProvisioningEmail, PROVISIONING_ROLES 
 import {
   familyNeedsChildOnboarding,
   provisioningRunSuffix,
-  runFreeFamilyOnboardingWizard,
+  runProvisioningFamilyOnboardingWizard,
 } from './freeFamilyOnboarding'
 
 /** Caso REG-PROV-01 — visible en el reporte Playwright (annotation type flow). */
@@ -544,7 +544,28 @@ export async function stepRedeemSchoolInviteIfConfigured(
   )
 }
 
-export async function stepEnsureFreeFamilyChildAndPlan(page: Page, role: ProvisioningRole): Promise<void> {
+async function assertDashboardPlanForRole(page: Page, role: ProvisioningRole): Promise<void> {
+  const plan = role.expectedPlan
+  if (!plan) {
+    throw new Error(`Rol ${role.id} sin expectedPlan en provisioning.`)
+  }
+  try {
+    await assertDashboardPlan(page, plan)
+  } catch (err) {
+    if (role.id === 'familia_premium') {
+      test.info().annotations.push({
+        type: 'manual',
+        description: 'Premium: activar en /access (checkout) o vía soporte.',
+      })
+      expect.soft(false, 'Plan premium aún no es premium_unlimited.').toBe(true)
+      return
+    }
+    throw err
+  }
+}
+
+/** Si no hay hijo, onboarding con datos de prueba; si ya hay, valida el plan del rol. */
+export async function stepEnsureFamilyChildAndPlan(page: Page, role: ProvisioningRole): Promise<void> {
   await test.step(
     `Validación: ${role.label} → hijo en dashboard u onboarding de prueba, luego plan ${role.expectedPlan}`,
     async () => {
@@ -552,22 +573,25 @@ export async function stepEnsureFreeFamilyChildAndPlan(page: Page, role: Provisi
       if (!needsOnboarding) {
         test.info().annotations.push({
           type: 'note',
-          description: 'Familia Free ya tiene hijo registrado; se valida el plan sin onboarding.',
+          description: `${role.label}: ya tiene hijo registrado; se valida el plan sin onboarding.`,
         })
-        await assertDashboardPlan(page, role.expectedPlan!)
+        await assertDashboardPlanForRole(page, role)
         return
       }
 
       const runSuffix = provisioningRunSuffix()
       test.info().annotations.push({
         type: 'note',
-        description: `Onboarding Familia Free con datos de prueba (corrida ${runSuffix}).`,
+        description: `Onboarding ${role.label} con datos de prueba (corrida ${runSuffix}).`,
       })
-      await runFreeFamilyOnboardingWizard(page, runSuffix)
-      await assertDashboardPlan(page, role.expectedPlan!)
+      await runProvisioningFamilyOnboardingWizard(page, runSuffix)
+      await assertDashboardPlanForRole(page, role)
     }
   )
 }
+
+/** @deprecated Usar stepEnsureFamilyChildAndPlan */
+export const stepEnsureFreeFamilyChildAndPlan = stepEnsureFamilyChildAndPlan
 
 export async function stepAssertDashboardPlanWithFallback(
   page: Page,
