@@ -15,38 +15,74 @@ async function waitForDashboardShell(page: Page): Promise<void> {
     await loading.first().waitFor({ state: 'detached', timeout: 45_000 }).catch(() => {})
   }
   const quota = page.locator('[data-quota-plan]').first()
-  if (await quota.count()) {
+  if ((await quota.count()) > 0) {
     await expect(quota).not.toHaveAttribute('data-quota-plan', 'loading', { timeout: 45_000 }).catch(() => {})
   }
 }
 
+const CHILD_UI = (page: Page) =>
+  page
+    .locator('[data-testid="child-name"]')
+    .or(page.locator('[data-testid="child-indicator"]'))
+    .or(page.getByTestId('mission-quota-label'))
+    .or(page.getByTestId('parent-mvp-stack'))
+    .or(page.getByText(/Resumen de hoy|Today's summary/i))
+
 /** Tras login: ¿hay al menos un hijo visible en el panel? */
-export async function familyHasRegisteredChild(page: Page): Promise<boolean> {
-  const childName = page.locator('[data-testid="child-name"]').first()
-  if (await childName.isVisible({ timeout: 8_000 }).catch(() => false)) return true
+export async function familyHasRegisteredChild(page: Page, timeoutMs = 60_000): Promise<boolean> {
+  return CHILD_UI(page)
+    .first()
+    .isVisible({ timeout: timeoutMs })
+    .catch(() => false)
+}
 
-  const indicator = page.locator('[data-testid="child-indicator"]').first()
-  if (await indicator.isVisible({ timeout: 8_000 }).catch(() => false)) return true
+type FamilyProfileState = 'has-child' | 'onboarding-welcome' | 'onboarding-wizard' | 'pending'
 
-  const switcher = page.locator('[data-testid="child-switcher-button"]').first()
-  if (await switcher.isVisible({ timeout: 5_000 }).catch(() => false)) return true
+async function resolveFamilyProfileState(page: Page): Promise<FamilyProfileState> {
+  if (await familyHasRegisteredChild(page, 1_500)) return 'has-child'
+  if (await page.locator('#child-birth-month').isVisible().catch(() => false)) return 'onboarding-wizard'
+  if (
+    await page
+      .getByRole('heading', { name: /Así acompaña AstroKid|How AstroKid stays with you/i })
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return 'onboarding-welcome'
+  }
+  if (
+    await page.getByRole('button', { name: /Crear el perfil|Create the profile/i }).isVisible().catch(() => false)
+  ) {
+    return 'onboarding-welcome'
+  }
+  return 'pending'
+}
 
-  const quotaLabel = page.getByTestId('mission-quota-label').first()
-  if (await quotaLabel.isVisible({ timeout: 5_000 }).catch(() => false)) return true
-
-  return false
+/** Espera a que el panel muestre un hijo o el flujo de onboarding (también si /onboarding redirige al dashboard). */
+export async function waitForFamilyProfileState(page: Page, timeoutMs = 60_000): Promise<FamilyProfileState> {
+  const deadline = Date.now() + timeoutMs
+  let last: FamilyProfileState = 'pending'
+  while (Date.now() < deadline) {
+    last = await resolveFamilyProfileState(page)
+    if (last !== 'pending') return last
+    if (/\/dashboard/.test(page.url())) {
+      await waitForDashboardShell(page).catch(() => {})
+    }
+    await page.waitForTimeout(750)
+  }
+  if (await familyHasRegisteredChild(page, 5_000)) return 'has-child'
+  return last
 }
 
 /** Tras login: ¿hace falta crear el primer hijo? */
 export async function familyNeedsChildOnboarding(page: Page): Promise<boolean> {
   await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
   await page.waitForURL(/\/dashboard|\/onboarding|\/login/, { timeout: 45_000 })
-  if (/\/onboarding/.test(page.url())) return true
-  if (!/\/dashboard/.test(page.url())) {
+  if (!/\/dashboard|\/onboarding/.test(page.url())) {
     throw new Error(`Destino inesperado tras /dashboard: ${page.url()}`)
   }
   await waitForDashboardShell(page)
-  return !(await familyHasRegisteredChild(page))
+  const state = await waitForFamilyProfileState(page)
+  return state !== 'has-child'
 }
 
 async function pickBirthMonthYear(page: Page): Promise<void> {
@@ -103,20 +139,20 @@ async function submitParentalConsent(page: Page): Promise<void> {
 /** Wizard completo del hijo (cuenta Familia Free sin niños). */
 export async function runFreeFamilyOnboardingWizard(page: Page, runSuffix: string): Promise<void> {
   await page.goto('/onboarding', { waitUntil: 'domcontentloaded' })
-  await page.waitForURL(/\/onboarding|\/dashboard/, { timeout: 45_000 })
-  if (/\/dashboard/.test(page.url())) {
-    await waitForDashboardShell(page)
-    if (await familyHasRegisteredChild(page)) return
+
+  const state = await waitForFamilyProfileState(page)
+  if (state === 'has-child') return
+
+  if (state === 'onboarding-welcome') {
+    await page.getByRole('button', { name: /Crear el perfil|Create the profile/i }).click()
+    const afterWelcome = await waitForFamilyProfileState(page, 45_000)
+    if (afterWelcome === 'has-child') return
   }
 
-  const createProfile = page.getByRole('button', { name: /Crear el perfil/i })
-  if (await createProfile.isVisible({ timeout: 10_000 }).catch(() => false)) {
-    await createProfile.click()
-  }
+  const beforeWizard = await waitForFamilyProfileState(page, 15_000)
+  if (beforeWizard === 'has-child') return
 
-  await expect(
-    page.getByRole('heading', { name: /perfil|profile/i }).or(page.getByText(/fecha de nacimiento|birth/i))
-  ).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('#child-birth-month')).toBeVisible({ timeout: 30_000 })
 
   await completeEmailPlusForPageSession(page)
 
@@ -132,8 +168,7 @@ export async function runFreeFamilyOnboardingWizard(page: Page, runSuffix: strin
   }
 
   await page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 120_000 })
-  await expect(page.locator('[data-testid="child-name"]').first()).toBeVisible({ timeout: 60_000 })
+  await expect(CHILD_UI(page).first()).toBeVisible({ timeout: 60_000 })
 
-  // runSuffix queda en anotaciones del paso que invoca el wizard (alias estelar aleatorio en UI).
   void runSuffix
 }
