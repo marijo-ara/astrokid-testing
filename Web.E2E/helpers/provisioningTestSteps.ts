@@ -73,7 +73,7 @@ Precondiciones: cuentas del TC-01 (o este test las re-asegura).
   2. Por cada rol de familia/coordinador: asegurar sesión (igual que TC-01).
   3. Coordinador: /escuela → guía visible; si licencia activa, agregar correo familia escolar.
   4. Familia escolar: canje en /access si hay REGISTRO_SCHOOL_INVITE_CODE.
-  5. Familias con plan: data-quota-plan en dashboard (free_capped, institutional_capped, premium_unlimited).
+  5. Familias con plan: data-quota-plan y barra (Free 0/10, escolar 0/100, Premium ∞).
 `.trim()
 
 export function attachProvisioningFlow(testInfo: TestInfo, caseId: string, body: string): void {

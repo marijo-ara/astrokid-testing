@@ -665,6 +665,25 @@ export async function redeemSchoolInviteCode(page: Page, code: string): Promise<
   ).toBeVisible({ timeout: 30_000 })
 }
 
+const MISSION_BAR_LABEL_BY_PLAN: Record<string, string> = {
+  free_capped: '0/10',
+  institutional_capped: '0/100',
+}
+
+export async function assertDashboardMissionQuotaBar(page: Page, plan: string): Promise<void> {
+  const bar = page.getByTestId('mission-quota-label')
+  await expect(bar).toBeVisible({ timeout: 30_000 })
+  if (plan === 'premium_unlimited') {
+    await expect(bar).toContainText('∞')
+    await expect(bar).not.toContainText('/100')
+    return
+  }
+  const expected = MISSION_BAR_LABEL_BY_PLAN[plan]
+  if (expected) {
+    await expect(bar).toContainText(expected)
+  }
+}
+
 export async function assertDashboardPlan(page: Page, plan: string): Promise<void> {
   await page.goto('/dashboard')
   await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 })
@@ -673,6 +692,7 @@ export async function assertDashboardPlan(page: Page, plan: string): Promise<voi
   await expect(quota).toBeVisible({ timeout: 30_000 })
   await expect(quota).not.toHaveAttribute('data-quota-plan', 'loading', { timeout: 30_000 })
   await expect(quota).toHaveAttribute('data-quota-plan', plan)
+  await assertDashboardMissionQuotaBar(page, plan)
 }
 
 /** Tras canje escolar: cupo institucional en /access (no exige niño en dashboard). */
