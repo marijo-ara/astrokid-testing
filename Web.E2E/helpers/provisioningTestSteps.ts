@@ -45,7 +45,7 @@ import {
 } from './freeFamilyOnboarding'
 import {
   adminActivatePremiumSinpeOnDesk,
-  premiumFamilySubmitSinpeOnAccess,
+  premiumFamilySubmitSinpeFromDashboard,
 } from './premiumSinpeProvisioning'
 import { peekPremiumSinpePaymentReference } from './premiumSinpeRunStore'
 
@@ -594,12 +594,12 @@ export async function stepEnsureFamilyChildAndPlan(page: Page, role: Provisionin
 /** @deprecated Usar stepEnsureFamilyChildAndPlan */
 export const stepEnsureFreeFamilyChildAndPlan = stepEnsureFamilyChildAndPlan
 
-/** Familia premium: envía comprobante SINPE en /access (sesión padre abierta o previo login). */
+/** Familia premium: dashboard → ventana de pago → SINPE. */
 export async function stepPremiumFamilySubmitSinpeProof(page: Page): Promise<void> {
   await test.step(
-    'Acción: /access → adjuntar pantallazo SINPE → Esperado: comprobante recibido',
+    'Acción: dashboard → pagar Premium → adjuntar SINPE → Esperado: comprobante recibido',
     async () => {
-      await premiumFamilySubmitSinpeOnAccess(page)
+      await premiumFamilySubmitSinpeFromDashboard(page)
     }
   )
 }

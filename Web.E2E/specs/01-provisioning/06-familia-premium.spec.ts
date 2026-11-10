@@ -74,7 +74,9 @@ test.describe('06 — Familia Premium @provisioning', () => {
     }
   )
 
-  test(qaTitle(['familia_premium'], 'enviar comprobante SINPE en /access'), async ({ page }, testInfo) => {
+  test(
+    qaTitle(['familia_premium'], 'pagar Premium: dashboard → Google Pay / ONVO / SINPE'),
+    async ({ page }, testInfo) => {
     skipUnlessProvisioningQaReady()
     attachProvisioningFlow(testInfo, 'REG-PROV-02', PROVISIONING_FLOW_TC02)
 
@@ -89,8 +91,9 @@ test.describe('06 — Familia Premium @provisioning', () => {
       return
     }
     await stepAssertParentSession(page, role.label)
-    await stepPremiumFamilySubmitSinpeProof(page)
-  })
+      await stepPremiumFamilySubmitSinpeProof(page)
+    }
+  )
 
   test(qaTitle(['admin_plataforma'], 'activar Premium tras comprobante SINPE'), async ({ page }, testInfo) => {
     skipUnlessProvisioningQaReady()

@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { minimalPremiumSinpePngBytes } from '../fixtures/premiumSinpeReceipt'
 import { provisioningRunSuffix } from './freeFamilyOnboarding'
 import { setPremiumSinpePaymentReference } from './premiumSinpeRunStore'
+import { waitForDashboardChildReady } from './freeFamilyOnboarding'
 
 export function defaultPremiumSinpeReference(): string {
   const suffix = provisioningRunSuffix()
@@ -19,15 +20,17 @@ export function maskEmailLikeBackend(email: string): string {
   return `${local[0]}***@${domain}`
 }
 
-/** Padre: adjunta pantallazo SINPE en /access (idempotente si ya hay pendiente o Premium). */
-export async function premiumFamilySubmitSinpeOnAccess(page: Page): Promise<void> {
-  await page.goto('/access')
-  await expect(page.getByTestId('access-status')).toBeVisible({ timeout: 30_000 })
+/** Padre Free: dashboard → ventana de pago → SINPE (idempotente si ya hay pendiente o Premium). */
+export async function premiumFamilySubmitSinpeFromDashboard(page: Page): Promise<void> {
+  await page.goto('/dashboard')
+  await waitForDashboardChildReady(page, 90_000)
 
-  const quota = page.getByTestId('mission-quota')
-  await expect(quota).toBeVisible({ timeout: 15_000 })
-  const quotaText = (await quota.textContent()) ?? ''
-  if (/ilimitadas \(Premium\)|unlimited \(Premium\)/i.test(quotaText)) {
+  const alreadyPremium = await page
+    .getByTestId('child-license-badge')
+    .filter({ hasText: /premium/i })
+    .isVisible()
+    .catch(() => false)
+  if (alreadyPremium) {
     test.info().annotations.push({
       type: 'note',
       description: 'Familia premium: ya tiene Premium; se omite envío SINPE.',
@@ -35,7 +38,15 @@ export async function premiumFamilySubmitSinpeOnAccess(page: Page): Promise<void
     return
   }
 
-  await expect(page.getByTestId('premium-purchase-options')).toBeVisible({ timeout: 30_000 })
+  const cta = page.getByTestId('dashboard-premium-upgrade-cta')
+  await expect(cta).toBeVisible({ timeout: 30_000 })
+  await cta.click()
+  await expect(page).toHaveURL(/\/dashboard\/premium/, { timeout: 30_000 })
+  await expect(page.getByTestId('premium-checkout-page')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('premium-pay-methods')).toBeVisible()
+  await expect(page.getByTestId('premium-pay-google')).toBeVisible()
+  await expect(page.getByTestId('premium-pay-onvo')).toBeVisible()
+  await expect(page.getByTestId('premium-pay-sinpe')).toBeVisible()
 
   const pending = page.getByTestId('premium-sinpe-pending')
   if (await pending.isVisible().catch(() => false)) {
@@ -67,9 +78,12 @@ export async function premiumFamilySubmitSinpeOnAccess(page: Page): Promise<void
   }
   test.info().annotations.push({
     type: 'provisioning',
-    description: `Premium SINPE enviado · ref ${reference}`,
+    description: `Premium SINPE enviado desde dashboard · ref ${reference}`,
   })
 }
+
+/** @deprecated Usar premiumFamilySubmitSinpeFromDashboard */
+export const premiumFamilySubmitSinpeOnAccess = premiumFamilySubmitSinpeFromDashboard
 
 export type AdminActivatePremiumSinpeOptions = {
   paymentReference?: string
