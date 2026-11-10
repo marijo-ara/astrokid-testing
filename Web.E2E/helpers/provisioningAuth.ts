@@ -17,6 +17,7 @@ import {
   type IdentityToolkitSignInProbe,
 } from './firebaseSignInProbe'
 import { ensureVercelProtectionOnContext } from '../fixtures/vercelProtectionHeaders'
+import { waitForDashboardChildReady } from './freeFamilyOnboarding'
 
 const LOGIN_SUBMIT_RETRIES = 3
 
@@ -667,6 +668,7 @@ export async function redeemSchoolInviteCode(page: Page, code: string): Promise<
 export async function assertDashboardPlan(page: Page, plan: string): Promise<void> {
   await page.goto('/dashboard')
   await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 })
+  await waitForDashboardChildReady(page, 90_000)
   const quota = page.locator('[data-quota-plan]').first()
   await expect(quota).toBeVisible({ timeout: 30_000 })
   await expect(quota).not.toHaveAttribute('data-quota-plan', 'loading', { timeout: 30_000 })

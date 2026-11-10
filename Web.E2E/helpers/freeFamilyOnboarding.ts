@@ -28,6 +28,30 @@ const CHILD_UI = (page: Page) =>
     .or(page.getByTestId('parent-mvp-stack'))
     .or(page.getByText(/Resumen de hoy|Today's summary/i))
 
+async function clickFamilyProfileRetryIfNeeded(page: Page): Promise<void> {
+  const retry = page.getByTestId('family-access-retry')
+  if (await retry.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await page.getByTestId('family-access-retry-button').click()
+  }
+  const loading = page.getByTestId('family-access-loading')
+  if (await loading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await loading.waitFor({ state: 'detached', timeout: 60_000 }).catch(() => {})
+  }
+}
+
+/** Tras crear el perfil: a veces el dashboard muestra «Reintentar» antes de cargar la familia. */
+export async function waitForDashboardChildReady(page: Page, timeoutMs = 90_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    await clickFamilyProfileRetryIfNeeded(page)
+    await waitForDashboardShell(page)
+    if (await CHILD_UI(page).first().isVisible({ timeout: 3_000 }).catch(() => false)) return
+    await page.waitForTimeout(1_000)
+  }
+  await clickFamilyProfileRetryIfNeeded(page)
+  await expect(CHILD_UI(page).first()).toBeVisible({ timeout: 15_000 })
+}
+
 /** Tras login: ¿hay al menos un hijo visible en el panel? */
 export async function familyHasRegisteredChild(page: Page, timeoutMs = 60_000): Promise<boolean> {
   return CHILD_UI(page)
@@ -65,6 +89,7 @@ export async function waitForFamilyProfileState(page: Page, timeoutMs = 60_000):
     last = await resolveFamilyProfileState(page)
     if (last !== 'pending') return last
     if (/\/dashboard/.test(page.url())) {
+      await clickFamilyProfileRetryIfNeeded(page)
       await waitForDashboardShell(page).catch(() => {})
     }
     await page.waitForTimeout(750)
@@ -168,7 +193,7 @@ export async function runProvisioningFamilyOnboardingWizard(page: Page, runSuffi
   }
 
   await page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 120_000 })
-  await expect(CHILD_UI(page).first()).toBeVisible({ timeout: 60_000 })
+  await waitForDashboardChildReady(page, 120_000)
 
   void runSuffix
 }
