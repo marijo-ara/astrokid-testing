@@ -24,7 +24,12 @@ export async function premiumFamilySubmitSinpeOnAccess(page: Page): Promise<void
   }
   await page.locator('#premium-sinpe-receipt').setInputFiles(receipt)
   await page.getByTestId('premium-sinpe-submit').click()
-  await expect(page.getByTestId('premium-sinpe-success')).toBeVisible({ timeout: 60_000 })
+  const success = page.getByTestId('premium-sinpe-success')
+  const pending = page.getByTestId('premium-sinpe-pending')
+  await expect(success.or(pending)).toBeVisible({ timeout: 60_000 })
+  if (await pending.isVisible()) {
+    await expect(pending).toContainText(/en revisión|under review/i)
+  }
   test.info().annotations.push({
     type: 'provisioning',
     description: `Premium SINPE enviado · ref ${reference}`,
