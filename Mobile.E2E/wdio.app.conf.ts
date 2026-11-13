@@ -1,5 +1,8 @@
 import type { WebdriverIOConfig } from '@serenity-js/webdriverio'
 import { appiumServer, astroKidApkCapabilities } from './config/android'
+import { loadEnvLocal } from './config/load-env-local'
+
+loadEnvLocal()
 
 /**
  * Black-box specs against the AstroKid Android APK (ASTROKID_APK) on an emulator.

@@ -1,5 +1,9 @@
 import type { WebdriverIOConfig } from '@serenity-js/webdriverio'
 import { appiumServer as androidAppiumServerConfig, androidChromeCapabilities as androidEmulatorCapabilities } from './config/android'
+import { loadEnvLocal } from './config/load-env-local'
+
+loadEnvLocal()
+
 export const config: WebdriverIOConfig = {
     //
     // ====================

@@ -26,6 +26,8 @@ in astro-kid-web). The child is created through the API before the run and delet
 
 ### Environment
 
+Copia `.env.example` → `.env.local` en `Mobile.E2E/` (gitignored). La terminal gana si la variable ya está definida. `wdio*.conf.ts` carga el archivo al arrancar.
+
 | Variable | Use |
 | --- | --- |
 | `ASTROKID_APK` | Path to the APK under test (required) |
