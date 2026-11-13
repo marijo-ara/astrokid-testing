@@ -569,6 +569,11 @@ Resultado esperado:
 - El niño entra a su panel con el nombre estelar creado en el onboarding.
 - El mismo QR escaneado en la app AstroKid de **producción** no funciona (ese niño no existe en producción). Es lo esperado.
 
+**Automatizado (Playwright + Appium):**
+
+1. `Web.E2E`: `npx playwright test specs/01-provisioning/09-child-qr-download.spec.ts` → guarda `.cache/child-qr/latest.png`.
+2. `Mobile.E2E`: `ASTROKID_USE_WEB_QR=1` (o `ASTROKID_QR_PNG`) + `npm run test:apk` usa ese PNG en la galería.
+
 ### MOB-03: Una misión con agentes funciona contra el backend nuevo
 
 - **Prioridad:** Alta

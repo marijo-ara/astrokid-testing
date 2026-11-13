@@ -1,7 +1,12 @@
 import { After, Before, Given, Then, When } from '@cucumber/cucumber'
 import { actorInTheSpotlight, type Actor } from '@serenity-js/core'
 import { ChildLogin } from '../../serenity/astrokid-app/ChildLogin'
-import { createQaChildCode, removeQaChild, type QaChildCode } from '../support/qaChildCode'
+import {
+    createQaChildCode,
+    removeQaChild,
+    tryLoadWebDownloadedChildQr,
+    type QaChildCode,
+} from '../support/qaChildCode'
 
 let qaCode: QaChildCode | undefined
 
@@ -22,7 +27,7 @@ function currentCode(): QaChildCode {
 }
 
 Given('que {actor} tiene el código QR de acceso que su familia descargó en QA', async (actor: Actor) => {
-    qaCode = await createQaChildCode(actor.name)
+    qaCode = tryLoadWebDownloadedChildQr() ?? (await createQaChildCode(actor.name))
 })
 
 When('abre AstroKid recién instalado y elige ese QR desde la galería', async () => {

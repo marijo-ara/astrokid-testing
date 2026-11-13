@@ -32,7 +32,22 @@ in astro-kid-web). The child is created through the API before the run and delet
 | `ASTROKID_BASE_URL` | Backend. Required. The suite creates a child and does not pick a host on its own |
 | `ASTROKID_PARENT_TOKEN` | Bearer of a QA parent with email-plus consent. Required on QA: deployed backends turn `/auth/dev-login` off |
 | `ASTROKID_PARENT_EMAIL` | Only if the token has no `email` claim |
+| `ASTROKID_USE_WEB_QR=1` | Use `Web.E2E/.cache/child-qr/latest.png` from the Playwright download case (`09-child-qr-download`) instead of creating a child via API |
+| `ASTROKID_QR_PNG` | Absolute path to a parent-downloaded QR PNG (overrides the default cache path) |
 | `ANDROID_DEVICE_NAME`, `ANDROID_PLATFORM_VERSION` | Optional Appium capabilities |
+
+Bridge web → mobile (same QA child the parent just downloaded):
+
+```powershell
+# 1) Web.E2E (from Web.E2E/)
+npx playwright test specs/01-provisioning/09-child-qr-download.spec.ts --grep familia_free
+
+# 2) Mobile.E2E
+$env:ASTROKID_USE_WEB_QR = "1"
+$env:ASTROKID_APK = "C:\path\to\app-release.apk"
+$env:ASTROKID_BASE_URL = "https://…"   # still required by config; unused for child create when web QR is set
+npm run test:apk
+```
 
 Without `ASTROKID_PARENT_TOKEN` the suite uses `/auth/dev-login` with a fresh address, which only a
 local backend accepts. Run that backend with `ENVIRONMENT=test` and `COPPA_EMAIL_PLUS_REQUIRED=false`

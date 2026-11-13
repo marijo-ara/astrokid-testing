@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import * as QRCode from 'qrcode'
 
 const EMAIL_PLUS_PATH = '/family-profiles/parental-consent/email-plus'
@@ -11,6 +13,63 @@ export interface QaChildCode {
     token: string
     /** PNG with the same payload the parent dashboard downloads (buildChildQRData in astro-kid-web). */
     qrPng: Buffer
+    /** True when the PNG came from Web.E2E `.cache/child-qr` (do not DELETE the child). */
+    fromWebCache?: boolean
+}
+
+/** Default path written by Web.E2E `09-child-qr-download` (run from repo root or Mobile.E2E). */
+export function defaultWebChildQrPngPath(): string {
+    return path.resolve(__dirname, '../../../Web.E2E/.cache/child-qr/latest.png')
+}
+
+export function defaultWebChildQrMetaPath(): string {
+    return path.resolve(__dirname, '../../../Web.E2E/.cache/child-qr/latest.json')
+}
+
+/**
+ * Optional bridge: use the PNG the parent downloaded in Playwright.
+ * Set ASTROKID_USE_WEB_QR=1 and/or ASTROKID_QR_PNG=/path/to/file.png
+ */
+export function tryLoadWebDownloadedChildQr(): QaChildCode | null {
+    const explicit = process.env.ASTROKID_QR_PNG?.trim()
+    const useFlag = process.env.ASTROKID_USE_WEB_QR?.trim() === '1'
+    if (!explicit && !useFlag) return null
+
+    const pngPath = explicit || defaultWebChildQrPngPath()
+    if (!fs.existsSync(pngPath)) {
+        throw new Error(
+            `ASTROKID_USE_WEB_QR/ASTROKID_QR_PNG activo pero no hay PNG en ${pngPath}. ` +
+                'Corré antes Web.E2E specs/01-provisioning/09-child-qr-download.spec.ts',
+        )
+    }
+    const qrPng = fs.readFileSync(pngPath)
+    if (qrPng.length < 200) {
+        throw new Error(`QR PNG demasiado pequeño: ${pngPath}`)
+    }
+
+    let childName = 'child'
+    const metaPath = explicit
+        ? path.join(path.dirname(explicit), `${path.basename(explicit, path.extname(explicit))}.json`)
+        : defaultWebChildQrMetaPath()
+    try {
+        const meta = JSON.parse(fs.readFileSync(
+            fs.existsSync(metaPath) ? metaPath : defaultWebChildQrMetaPath(),
+            'utf8',
+        )) as { childName?: string }
+        if (meta.childName?.trim()) childName = meta.childName.trim()
+    } catch {
+        // meta optional for gallery login; welcome step may be softer
+    }
+
+    return {
+        childId: 'web-cache',
+        childName,
+        familyId: '',
+        parentToken: '',
+        token: '',
+        qrPng,
+        fromWebCache: true,
+    }
 }
 
 interface ParentSession {
@@ -176,5 +235,6 @@ export async function createQaChildCode(firstName: string, age = 8): Promise<QaC
 
 /** Deletes the child and all of its activity, so runs against a shared QA parent do not pile up. */
 export async function removeQaChild(code: QaChildCode): Promise<void> {
+    if (code.fromWebCache || !code.familyId || !code.parentToken) return
     await call('DELETE', `/family-profiles/${code.familyId}/children/${code.childId}`, undefined, code.parentToken)
 }
